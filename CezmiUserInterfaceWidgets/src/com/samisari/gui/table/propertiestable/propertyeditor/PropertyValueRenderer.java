@@ -1,0 +1,22 @@
+package com.samisari.gui.table.propertiestable.propertyeditor;
+
+import java.awt.Component;
+
+import javax.swing.JTable;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableCellRenderer;
+
+public class PropertyValueRenderer implements TableCellRenderer {
+	private DefaultTableCellRenderer		renderer		= new DefaultTableCellRenderer();
+
+	@Override
+	public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+		if (value == null) {
+			renderer.setText("");
+		} else {
+			renderer.setText(value.toString());
+		}
+		return renderer;
+	}
+
+}

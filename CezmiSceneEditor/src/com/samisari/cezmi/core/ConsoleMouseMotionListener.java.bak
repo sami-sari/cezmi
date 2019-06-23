@@ -1,0 +1,21 @@
+package com.samisari.graphics.core;
+
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionListener;
+
+public class ConsoleMouseMotionListener implements MouseMotionListener {
+
+	@Override
+	public void mouseDragged(MouseEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void mouseMoved(MouseEvent e) {
+		AbstractCommand command = CommandManager.getInstance().getCommand();
+		if (command != null)
+			command.mouseMoved(e.getX(), e.getY());
+	}
+
+}

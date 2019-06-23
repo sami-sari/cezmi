@@ -1,0 +1,90 @@
+package com.samisari.commands.uml;
+
+import java.lang.reflect.Modifier;
+
+import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.PrimitiveType;
+import com.github.javaparser.ast.type.ReferenceType;
+import com.github.javaparser.ast.type.VoidType;
+
+public class AstTranslator {
+
+	public static CmdClassField createCmdField(FieldDeclaration field) {
+		CmdClassField f = new CmdClassField();
+		f.setName(field.getVariables().get(0).getId().getName());
+		//		f.setAstFieldDeclaration(field);
+		convertFieldModifiersAst2Cezmi(f, field.getModifiers());
+		convertFieldTypeAst2Cezmi(field, f);
+		return f;
+	}
+
+	public static CmdClassMethod createCmdMethod(MethodDeclaration method) {
+		CmdClassMethod m = new CmdClassMethod();
+		//		m.setAstMethodDeclaration(method);
+		convertMethodModifiersAst2Cezmi(m, method.getModifiers());
+		convertMethodTypeAst2Cezmi(method, m);
+		m.setName(method.getName());
+		CmdCodeBlock code = new CmdCodeBlock();
+		if (code != null)
+			if (method != null && method.getBody() != null)
+				code.setText(method.getBody().toString());
+		m.setCode(code);
+		return m;
+	}
+
+	private static void convertMethodTypeAst2Cezmi(MethodDeclaration method, CmdClassMethod m) {
+		String typ = "";
+		com.github.javaparser.ast.type.Type ftype = method.getType();
+		if (ftype instanceof ClassOrInterfaceType) {
+			typ = ((ClassOrInterfaceType) ftype).getName();
+		} else if (ftype instanceof PrimitiveType) {
+			typ = ((PrimitiveType) ftype).toString();
+		} else if (ftype instanceof ReferenceType) {
+			typ = ((ReferenceType) ftype).getType().toString();
+		} else if (ftype instanceof VoidType) {
+			typ = "void";
+		}
+		m.setReturnType(typ);
+	}
+
+	private static void convertFieldTypeAst2Cezmi(FieldDeclaration field, CmdClassField f) {
+		String typ = "";
+		com.github.javaparser.ast.type.Type ftype = field.getType();
+		if (ftype instanceof ClassOrInterfaceType) {
+			typ = ((ClassOrInterfaceType) ftype).getName();
+		} else if (ftype instanceof PrimitiveType) {
+			typ = ((PrimitiveType) ftype).toString();
+		} else if (ftype instanceof ReferenceType) {
+			typ = ((ReferenceType) ftype).getType().toString();
+		} else if (ftype instanceof VoidType) {
+			typ = "void";
+		}
+		f.setType(typ);
+	}
+
+	private static void convertMethodModifiersAst2Cezmi(CmdClassMethod m, int mod) {
+		m.set_public(Modifier.isPublic(mod));
+		m.set_private(Modifier.isPrivate(mod));
+		m.set_protected(Modifier.isProtected(mod));
+		m.set_static(Modifier.isStatic(mod));
+		m.set_final(Modifier.isFinal(mod));
+		m.set_abstract(Modifier.isAbstract(mod));
+		m.set_volatile(Modifier.isVolatile(mod));
+		m.set_synchronized(Modifier.isSynchronized(mod));
+		m.set_transient(Modifier.isTransient(mod));
+	}
+
+	private static void convertFieldModifiersAst2Cezmi(CmdClassField f, int mod) {
+		f.set_public(Modifier.isPublic(mod));
+		f.set_private(Modifier.isPrivate(mod));
+		f.set_protected(Modifier.isProtected(mod));
+		f.set_static(Modifier.isStatic(mod));
+		f.set_final(Modifier.isFinal(mod));
+		f.set_volatile(Modifier.isVolatile(mod));
+		f.set_synchronized(Modifier.isSynchronized(mod));
+		f.set_transient(Modifier.isTransient(mod));
+	}
+
+}

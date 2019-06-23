@@ -1,0 +1,18 @@
+package com.samisari.graphics.commands;
+
+public class CmdZoomOut extends CmdZoom {
+	private double zoomFactor = 0.50;
+
+	public static String getCommandName() {
+		return "Z-";
+	}
+
+	public double getZoomFactor() {
+		return zoomFactor;
+	}
+
+	public void setZoomFactor(double zoomFactor) {
+		this.zoomFactor = zoomFactor;
+	}
+
+}

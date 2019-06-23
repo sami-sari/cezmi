@@ -1,0 +1,64 @@
+package com.samisari.gui.tree;
+
+import java.util.Enumeration;
+
+import javax.swing.JTree;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreePath;
+
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+
+public class HistoryTree extends JTree implements TreeSelectionListener {
+	private static final long serialVersionUID = 7868267460073677880L;
+
+	public HistoryTree() {
+		super(new HistoryTreeModel());
+		getSelectionModel().addTreeSelectionListener(this);
+
+	}
+
+	public void setSelectedCommand(AbstractCommand cmd) {
+		DefaultMutableTreeNode node = (DefaultMutableTreeNode) this.getModel().getRoot();
+		traverseTree(node, cmd);
+		if (cmd.equals(node.getUserObject())) {
+			setSelectionPath(new TreePath(node.getPath()));
+			return;
+		}
+
+	}
+
+	@SuppressWarnings("unchecked")
+	private boolean traverseTree(DefaultMutableTreeNode root, AbstractCommand cmd) {
+		if (cmd.equals(root.getUserObject()))
+			return true;
+
+		Enumeration<DefaultMutableTreeNode> children = root.children();
+		while (children.hasMoreElements()) {
+			DefaultMutableTreeNode node = children.nextElement();
+			if (traverseTree(node, cmd))
+				return true;
+		}
+
+		return false;
+	}
+
+	public void refresh() {
+		setModel(new HistoryTreeModel());
+		revalidate();
+		repaint();
+
+	}
+
+	@Override
+	public void valueChanged(TreeSelectionEvent e) {
+		DefaultMutableTreeNode node = (DefaultMutableTreeNode) e.getPath().getLastPathComponent();
+		if (!getModel().getRoot().equals(node)) {
+			AbstractCommand cmd = (AbstractCommand) (node.getUserObject());
+			cmd.setSelected(!cmd.isSelected());
+			ConsolePropertyManager.getDefaultInstance().getConsolePanel().repaint();
+		}
+	}
+}

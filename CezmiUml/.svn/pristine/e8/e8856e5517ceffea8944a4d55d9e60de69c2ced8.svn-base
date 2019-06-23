@@ -1,0 +1,123 @@
+package com.samisari.commands.uml;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.StringTokenizer;
+
+import com.samisari.cezmi.core.CezmiScrollableRegion;
+import com.samisari.guidesigner.CmdWindow;
+
+public class CmdClass extends CmdWindow {
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	protected List<String> fields = new ArrayList<String>();
+	protected List<String> methods = new ArrayList<String>();
+	private String sourceCode ;
+
+	@Override
+	public void paint(Graphics g) {
+		Color tempColor = g.getColor();
+		Font tempFont = g.getFont();
+		Graphics2D g2 = (Graphics2D) g;
+
+		int maxWidth = 1;
+		for (int i = 0; fields != null && i < fields.size(); i++) {
+			int w = g2.getFontMetrics().stringWidth(fields.get(i));
+			if (w > maxWidth)
+				maxWidth = w;
+		}
+		for (int i = 0; methods != null && i < methods.size(); i++) {
+			int w = g2.getFontMetrics().stringWidth(methods.get(i));
+			if (w > maxWidth)
+				maxWidth = w;
+		}
+		int h = 20 * ((fields==null?0:fields.size()) + (methods==null?0:methods.size()) + 1);
+
+		BufferedImage img = new BufferedImage(Math.max(maxWidth, getBounds().width), Math.max(h, getBounds().height),
+				BufferedImage.TYPE_INT_ARGB);
+		g2 = (Graphics2D) img.getGraphics();
+		g2.setBackground(Color.WHITE);
+		g2.setColor(Color.BLACK);
+		if (fields == null)
+			fields = new ArrayList<String>();
+		for (int i = 0; fields != null && i < fields.size(); i++) {
+			g2.drawString(fields.get(i), 10, 50 + (i * 20));
+		}
+		g2.drawLine(0, 50 + (fields.size() * 20), getBounds().width, 50 + (fields.size() * 20));
+		for (int i = 0; methods != null && i < methods.size(); i++) {
+			g2.drawString(methods.get(i), 10, 70 + ((fields.size() + i) * 20));
+		}
+
+		new CezmiScrollableRegion(img, getBounds()).paint((Graphics2D) g);
+
+		g.setFont(tempFont);
+		g.setColor(tempColor);
+
+		super.paint(g);
+	}
+
+	public void setFields(String fields) {
+		this.fields.clear();
+		StringTokenizer st = new StringTokenizer(fields, ";");
+		while (st.hasMoreTokens()) {
+			this.fields.add(st.nextToken());
+		}
+	}
+
+	public void setMethods(String methods) {
+		this.methods.clear();
+		StringTokenizer st = new StringTokenizer(methods, ";");
+		while (st.hasMoreTokens()) {
+			this.methods.add(st.nextToken());
+		}
+	}
+
+	public static String getCommandName() {
+		return "UML Class";
+	}
+
+	public List<String> getFields() {
+		return fields;
+	}
+
+	public void setFields(List<String> fields) {
+		this.fields = fields;
+	}
+
+	public List<String> getMethods() {
+		return methods;
+	}
+
+	public void setMethods(List<String> methods) {
+		this.methods = methods;
+	}
+
+
+	public String getSourceCode() {
+		return sourceCode;
+	}
+
+	public void setSourceCode(String sourceCode) {
+		this.sourceCode = sourceCode;
+	}
+
+	@Override
+	public String getTitleText() {
+		return getName() == null ? "" : getName();
+	}
+
+	@Override
+	public void openContextMenu() {
+		super.openContextMenu();
+		CmdClassWizard wizard = new CmdClassWizard(this);
+		wizard.setVisible(true);
+		wizard.pack();
+	}
+}

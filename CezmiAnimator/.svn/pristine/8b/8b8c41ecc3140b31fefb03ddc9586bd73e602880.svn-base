@@ -1,0 +1,435 @@
+package com.samisari.cezmi.animator.core;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.animator.animationcommands.CezmiAbstractTransformation;
+import com.samisari.cezmi.animator.sound.SoundClipBoundary;
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.History;
+
+public class Animation {
+	private static final Logger											logger				= Logger.getLogger(Animation.class);
+	private List<History>												views;
+	// Assets that form the basic scene
+	private History														assets;
+	// Transformations distributed among frames
+	private HashMap<AbstractCommand, List<CezmiAbstractTransformation>>	transformations;
+	private History														currentView;
+	private int															currentFrameNumber;
+	private int															numberOfFrames;
+	private int															framesPerSecond		= 30;
+	private List<AnimationListener>										animationListeners	= new ArrayList<AnimationListener>();
+	private int															selectionStart		= -1;
+	private int															selectionEnd		= -1;
+	private byte[]														animation;
+	private List<SoundClipBoundary>										clips;
+
+	public Animation(int numberOfFrames) {
+		views = new ArrayList<History>();
+		views.add((History) CommandManager.getInstance().getHistory().clone());
+		// for (int i = 0; i < numberOfFrames; i++) {
+		// }
+		setAssets((History) CommandManager.getInstance().getHistory().clone());
+		setCurrentFrameNumber(0);
+		setCurrentView(views.get(currentFrameNumber));
+		setTransformations(new HashMap<AbstractCommand, List<CezmiAbstractTransformation>>());
+		setNumberOfFrames(numberOfFrames);
+	}
+
+	public History getAssets() {
+		return assets;
+	}
+
+	public void setAssets(History assets) {
+		this.assets = assets;
+	}
+
+	public HashMap<AbstractCommand, List<CezmiAbstractTransformation>> getTransformations() {
+		return transformations;
+	}
+
+	public void setTransformations(HashMap<AbstractCommand, List<CezmiAbstractTransformation>> transformations) {
+		this.transformations = transformations;
+	}
+
+	public History getCurrentView() {
+		return currentView;
+	}
+
+	public void setCurrentView(History currentView) {
+		this.currentView = currentView;
+		for (AnimationListener l : animationListeners) {
+			l.onFrameChange();
+		}
+	}
+
+	public int getCurrentFrameNumber() {
+		return currentFrameNumber;
+	}
+
+	public void setCurrentFrameNumber(int currentFrameNumber) {
+		if (currentFrameNumber >= 0)
+			if (views.size() > currentFrameNumber) {
+				this.currentFrameNumber = currentFrameNumber;
+				setCurrentView(views.get(currentFrameNumber));
+			} else {
+				for (int i = views.size(); i < currentFrameNumber; i++) {
+					views.add(new History());
+				}
+			}
+		// for (int i = 0; i < currentView.size(); i++) {
+		// AbstractCommand cmd = currentView.get(i);
+		// List<CezmiAbstractTransformation> tList = transformations.get(cmd);
+		// if (tList != null)
+		// for (int j = 0; j < tList.size(); j++) {
+		// CezmiAbstractTransformation t = tList.get(j);
+		// if (t.getStartFrame() <= getCurrentFrameNumber() && t.getEndFrame()
+		// >= getCurrentFrameNumber()) {
+		// t.transform();
+		// }
+		// }
+		// }
+	}
+
+	public int getNumberOfFrames() {
+		return numberOfFrames;
+	}
+
+	public void setNumberOfFrames(int numberOfFrames) {
+		this.numberOfFrames = numberOfFrames;
+	}
+
+	public int getFramesPerSecond() {
+		return framesPerSecond;
+	}
+
+	public void setFramesPerSecond(int framesPerSecond) {
+		this.framesPerSecond = framesPerSecond;
+	}
+
+	public void addListener(AnimationListener listener) {
+		animationListeners.add(listener);
+	}
+
+	public int getSelectionStart() {
+		return selectionStart;
+	}
+
+	public void setSelectionStart(int selectionStart) {
+		this.selectionStart = selectionStart;
+	}
+
+	public int getSelectionEnd() {
+		return selectionEnd;
+	}
+
+	public void setSelectionEnd(int selectionEnd) {
+		this.selectionEnd = selectionEnd;
+	}
+
+	public List<History> getViews() {
+		return views;
+	}
+
+	public void setViews(List<History> views) {
+		this.views = views;
+	}
+
+	public void load() {
+		byte[] startFrameBytes = "<frame>".getBytes();
+		byte[] endFrameBytes = "</frame>".getBytes();
+		int pos = 0;
+		int endPos = 0;
+		List<Integer> startPositions = new ArrayList<Integer>();
+		List<Integer> endPositions = new ArrayList<Integer>();
+
+		for (int i = 0; i < animation.length; i++) {
+			if (endPositions.size() < startPositions.size()) {
+				if (animation[i] == endFrameBytes[endPos]) {
+					if (endPos == endFrameBytes.length - 1) {
+						endPositions.add(i - endFrameBytes.length);
+						endPos = 0;
+					} else
+						endPos++;
+				} else
+					endPos = 0;
+			} else {
+				if (animation[i] == startFrameBytes[pos]) {
+					if (pos == startFrameBytes.length - 1) {
+						startPositions.add(i + 1);
+						pos = 0;
+					} else
+						pos++;
+				} else
+					pos = 0;
+			}
+		}
+
+		views.clear();
+		for (int i = 0; i < startPositions.size(); i++) {
+			ByteArrayInputStream is = new ByteArrayInputStream(Arrays.copyOfRange(animation, startPositions.get(i), endPositions.get(i)));
+			InputStreamReader in = new InputStreamReader(is);
+			History history = new History();
+			int c;
+			String text = "";
+			try {
+				while ((c = in.read()) >= 0) {
+					text = text + (char) c;
+					logger.debug(text);
+					if (text.endsWith(">")) {
+						String className = text.substring(text.indexOf("<") + 1, text.indexOf(">"));
+						logger.debug("PARSING\n\tClass " + className);
+						AbstractCommand command = null;
+						try {
+							command = (AbstractCommand) Class.forName(className).newInstance();
+						} catch (Exception e) {
+							logger.error("Komut Sınıfı bilnmiyor!" + className);
+						}
+						if (command != null) {
+							try {
+								command.deserialise(in);
+							} catch (Exception e) {
+								logger.error("gele", e);
+							}
+							history.add(command);
+							text = "";
+						}
+					}
+				}
+			} catch (Exception e) {
+				logger.error("Dosya okunamadı!", e);
+			}
+			views.add((History) history);
+		}
+		logger.warn("Done loading");
+	}
+
+	public void save() {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		for (History v : getViews()) {
+			v.serialise(baos);
+		}
+		animation = baos.toByteArray();
+	}
+
+	public void setAnimation(byte[] animation) {
+		this.animation = animation;
+	}
+
+	public byte[] getAnimation() {
+		return animation;
+	}
+
+	private void save(final OutputStream os, final List<History> frames) throws IOException {
+		for (History v : frames) {
+			os.write("<frame>".getBytes(Charset.forName("UTF8")));
+			v.serialise(os);
+			os.write("</frame>".getBytes(Charset.forName("UTF8")));
+		}
+	}
+
+	private void saveDelta(final OutputStream os, final List<History> frames) throws IOException {
+		History v = getViews().get(0);
+		os.write("<frame>".getBytes(Charset.forName("UTF8")));
+		v.serialise(os);
+		os.write("</frame>".getBytes(Charset.forName("UTF8")));
+		for (int i = 1; i < getViews().size(); i++) {
+			FrameDiff delta = new FrameDiff(getViews().get(i - 1), getViews().get(i));
+			delta.save(os);
+		}
+
+	}
+
+	private void getTagBoundaries(String tag, List<Integer> startPositions, List<Integer> endPositions) {
+		byte[] startBytes = ("<" + tag + ">").getBytes(Charset.forName("UTF8"));
+		byte[] endBytes = ("</" + tag + ">").getBytes();
+		int endPos = 0, pos = 0;
+
+		for (int i = 0; i < animation.length; i++) {
+			if (endPositions.size() < startPositions.size()) {
+				if (animation[i] == endBytes[endPos]) {
+					if (endPos == endBytes.length - 1) {
+						endPositions.add(i - endPos);
+						endPos = 0;
+					} else
+						endPos++;
+				} else
+					endPos = 0;
+			} else {
+				if (animation[i] == startBytes[pos]) {
+					if (pos == startBytes.length - 1) {
+						startPositions.add(i + 1);
+						pos = 0;
+					} else
+						pos++;
+				} else
+					pos = 0;
+			}
+		}
+	}
+
+	private String getFirstTagContent(String tag, int startPos) {
+		byte[] startBytes = ("<" + tag + ">").getBytes(Charset.forName("UTF8"));
+		byte[] endBytes = ("</" + tag + ">").getBytes(Charset.forName("UTF8"));
+		int endPos = 0, pos = 0, start = 0, end = 0;
+		for (int i = startPos; i < animation.length && end == 0; i++) {
+			if (start > 0) {
+				if (animation[i] == endBytes[endPos]) {
+					if (endPos == endBytes.length - 1) {
+						end = i - endBytes.length;
+						endPos = 0;
+					} else
+						endPos++;
+				} else
+					endPos = 0;
+			} else {
+				if (animation[i] == startBytes[pos]) {
+					if (pos == startBytes.length - 1) {
+						start = i + 1;
+						pos = 0;
+					} else
+						pos++;
+				} else
+					pos = 0;
+			}
+		}
+		byte[] content = Arrays.copyOfRange(animation, start, end + 1);
+		return new String(content, Charset.forName("UTF8"));
+	}
+
+	public void loadDelta() {
+		List<Integer> startPositions = new ArrayList<Integer>();
+		List<Integer> endPositions = new ArrayList<Integer>();
+		List<Integer> startDiffPositions = new ArrayList<Integer>();
+		List<Integer> endDiffPositions = new ArrayList<Integer>();
+		getTagBoundaries("frame", startPositions, endPositions);
+		getTagBoundaries("frameDiff", startDiffPositions, endDiffPositions);
+
+		views.clear();
+		int diffPos = 0;
+		int framePos = 0;
+
+		while (framePos < startPositions.size() || diffPos < startDiffPositions.size()) {
+			ByteArrayInputStream is;
+			History history = new History();
+			boolean frame = false;
+			if (startDiffPositions.size() <= diffPos
+					|| (startPositions.size() > framePos && startPositions.get(framePos) < startDiffPositions.get(diffPos))) {
+				is = new ByteArrayInputStream(Arrays.copyOfRange(animation, startPositions.get(framePos), endPositions.get(framePos)));
+				frame = true;
+				framePos++;
+			} else {
+				is = new ByteArrayInputStream(
+						Arrays.copyOfRange(animation, startDiffPositions.get(diffPos), endDiffPositions.get(diffPos)));
+				diffPos++;
+			}
+			InputStreamReader in = new InputStreamReader(is);
+			int c;
+			String text = "";
+			try {
+				if (!frame)
+					history = (History) getViews().get(getViews().size() - 1).clone();
+				while ((c = in.read()) >= 0) {
+					text = text + (char) c;
+					logger.debug(text);
+					if (text.endsWith(">")) {
+						String className = text.substring(text.indexOf("<") + 1, text.indexOf(">"));
+						logger.debug("PARSING\n\tClass " + className);
+						AbstractCommand command = null;
+						try {
+							if (frame) {
+								command = (AbstractCommand) Class.forName(className).newInstance();
+							} else {
+								String id = getCommandId(startDiffPositions.get(diffPos - 1));
+								command = history.getCommand(id);
+							}
+						} catch (Exception e) {
+							logger.error("Komut Sınıfı bilnmiyor!" + className);
+						}
+						if (command != null) {
+							try {
+								if (frame)
+									command.deserialise(in);
+								else
+									command.deserialise(in);
+							} catch (Exception e) {
+								logger.error("gele", e);
+							}
+							if (frame)
+								history.add(command);
+							text = "";
+						}
+					}
+				}
+			} catch (Exception e) {
+				logger.error("Dosya okunamadı!", e);
+			}
+			views.add((History) history);
+		}
+		logger.warn("Done loading");
+	}
+
+	private String getCommandId(int pos) {
+		return getFirstTagContent("id", pos);
+	}
+
+	public void save(String fileName) throws IOException {
+		FileOutputStream fos = new FileOutputStream(fileName);
+		saveDelta(fos, getViews());
+		fos.flush();
+		fos.close();
+	}
+
+	public void saveSelected(String fileName) throws IOException {
+		FileOutputStream fos = new FileOutputStream(fileName);
+		save(fos, getSelectedViews());
+		fos.flush();
+		fos.close();
+	}
+
+	private List<History> getSelectedViews() {
+		return getViews().subList(getSelectionStart(), getSelectionEnd());
+	}
+
+	public void load(String fileName) throws IOException {
+		FileInputStream fis = new FileInputStream(fileName);
+		ByteBuffer buffer = ByteBuffer.allocate((int) new File(fileName).length());
+		byte b = (byte) fis.read();
+		while (b > -1) {
+			buffer.put(b);
+			b = (byte) fis.read();
+		}
+		fis.close();
+		setAnimation(buffer.array());
+	}
+
+	public void delete() {
+		for (int i = getSelectionStart(); i <= getSelectionEnd();) {
+			getViews().remove(i);
+			if (getSelectionStart() <= getSelectionEnd())
+				setSelectionEnd(getSelectionEnd() - 1);
+			else {
+				i--;
+				setSelectionEnd(getSelectionEnd() - 1);
+			}
+		}
+
+	}
+
+}

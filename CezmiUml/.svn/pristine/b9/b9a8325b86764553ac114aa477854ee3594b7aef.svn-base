@@ -1,0 +1,10 @@
+package com.samisari.commands.uml;
+
+import java.util.List;
+
+import com.samisari.graphics.commands.CmdStatement;
+
+public class CmdCodeBlock {
+	private boolean _static;
+	private List<CmdStatement> statements;
+}

@@ -1,0 +1,139 @@
+package com.samisari.cezmi.animator.gui;
+
+import java.awt.Point;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.util.List;
+
+import com.samisari.cezmi.animator.core.Animation;
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.History;
+import com.samisari.cezmi.core.Operation;
+
+public class PlayerMouseListener implements MouseListener, MouseMotionListener {
+	PlayerPanel	panel;
+	Player		player;
+	Animation	anim;
+	boolean		dragging	= false;
+	Operation	currentOperation = Operation.NONE;
+	Point 		lastClick;
+	AbstractCommand pivot;
+
+	public PlayerMouseListener(PlayerPanel panel, Player player) {
+		this.player = player;
+		anim = player.getAnimation();
+		this.panel = panel;
+	}
+
+	@Override
+	public void mouseClicked(MouseEvent e) {
+		if (dragging) {
+			dragging = false;
+			currentOperation = Operation.NONE;
+		} else {
+			History history = anim.getCurrentView();
+			List<AbstractCommand> list = history.getSelectedCommands();
+			if (list.size() > 0) {
+				Point click = new Point(e.getX(), e.getY());
+				for (AbstractCommand cmd : list) {
+					Operation operation = cmd.getOperation(click);
+					if (!dragging && operation != null && operation != Operation.NONE) {
+						dragging = true;
+						currentOperation = operation;
+						pivot=cmd;
+					}
+				}
+				lastClick=click;
+			}
+		}
+
+		if (!dragging) {
+			History history = anim.getCurrentView();
+			List<AbstractCommand> list = history.getCommandsInRange(e.getX(), e.getY(), 5);
+			if (list.size() == 0) {
+				history.clearSelections();
+			} else if (list.size() == 1) {
+				list.get(0).setSelected(true);
+			} else {
+				AbstractCommand smallestAreaCommand = null;
+				int minArea = Integer.MAX_VALUE;
+				for (AbstractCommand cmd:list) {
+					if (cmd.getArea()<minArea) {
+						minArea=cmd.getArea();
+						smallestAreaCommand=cmd;
+					}
+				}
+				smallestAreaCommand.setSelected(true);
+			}
+		}
+		panel.repaint();
+	}
+
+	@Override
+	public void mousePressed(MouseEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void mouseReleased(MouseEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void mouseEntered(MouseEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void mouseExited(MouseEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void mouseDragged(MouseEvent e) {
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void mouseMoved(MouseEvent e) {
+		if (currentOperation==Operation.CONTEXT_MENU) {
+			History history = anim.getCurrentView();
+			List<AbstractCommand> list = history.getSelectedCommands();
+			if (list.size() > 0) {
+				if (list.size()==1) {
+					AbstractCommand cmd = list.get(0);
+					cmd.openContextMenu();
+					return;
+				} else {
+					List<AbstractCommand> inRangeList = history.getCommandsInRange(e.getX(), e.getY(), AbstractCommand.SELECTION_MARKER_SIZE);
+					for (AbstractCommand cmd:list) {
+						if (cmd.isInRange(e.getX(), e.getY(), AbstractCommand.SELECTION_MARKER_SIZE)) {
+							cmd.openContextMenu();
+							return;
+						}
+					}
+				}
+				
+			}			
+		}
+		if (dragging && currentOperation!=Operation.NONE) {
+			History history = anim.getCurrentView();
+			List<AbstractCommand> list = history.getSelectedCommands();
+			if (list.size() > 0) {
+				Point click = new Point(e.getX(), e.getY());
+				Point pivotPoint = pivot.getOperationPoint(currentOperation);
+				for (AbstractCommand cmd : list) {
+					cmd.move(currentOperation, click.x - pivotPoint.x, click.y - pivotPoint.y);
+				}
+				panel.repaint();
+			}
+		}
+	}
+
+}

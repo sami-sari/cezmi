@@ -1,0 +1,86 @@
+package com.samisari.cezmi.animator.animationcommands;
+
+import java.awt.Point;
+import java.awt.geom.AffineTransform;
+import java.math.BigDecimal;
+
+import com.samisari.cezmi.core.AbstractCommand;
+
+public class CezmiRotation extends CezmiAbstractTransformation {
+	// Name of the command
+	public static final String COMMAND_STRING = "R";
+	// Rotation angle in radians
+	private double angle;
+	// Rotation center point
+	private Point pivotPoint;
+	public CezmiRotation() {
+		super();
+	}
+	public CezmiRotation(AbstractCommand object, double angle, Point pivotPoint, int startFrame, int endFrame) {
+		this();
+		setObject(object);
+		setAngle(angle);
+		setPivotPoint(pivotPoint);
+	}
+
+	@Override
+	public void transform() {
+		AffineTransform c = getObject().getTransform();
+		AffineTransform n = AffineTransform.getRotateInstance(angle, (double) pivotPoint.x, (double) pivotPoint.y);
+		c.concatenate(n);
+		getObject().setTransform(c);
+	}
+
+	public boolean parse(String line) throws Exception {
+		line = line.trim();
+		String arg1 = "", arg2 = "", arg3 = "";
+		if (line.startsWith(COMMAND_STRING)) {
+			int pos = COMMAND_STRING.length();
+			while (line.charAt(pos) == ' ') {
+				pos++;
+			}
+
+			if (line.charAt(pos) == '(') {
+				char ch = '0';
+				while ((ch = line.charAt(pos)) != ',') {
+					arg1 += ch;
+					pos++;
+				}
+				angle = new BigDecimal(arg1).doubleValue();
+				pos++;
+				while ((ch = line.charAt(pos)) != ',') {
+					arg2 += ch;
+					pos++;
+				}
+				pivotPoint.x = new BigDecimal(arg2).intValue();
+				pos++;
+				while ((ch = line.charAt(pos)) != ')') {
+					arg3 += ch;
+					pos++;
+				}
+				pivotPoint.y = new BigDecimal(arg3).intValue();
+
+			} else {
+				throw new Exception("Missing parameters");
+			}
+		}
+		return false;
+	}
+
+	public double getAngle() {
+		return angle;
+	}
+
+	public void setAngle(double angle) {
+		this.angle = angle;
+	}
+
+	public Point getPivotPoint() {
+		return pivotPoint;
+	}
+
+	public void setPivotPoint(Point pivotPoint) {
+		this.pivotPoint = pivotPoint;
+	}
+
+}

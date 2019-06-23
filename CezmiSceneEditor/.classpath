@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiCore"/>
+	<classpathentry kind="lib" path="/Libraries/logging/apache-log4j-1.2.16/log4j-1.2.16.jar" sourcepath="/Libraries/logging/apache-log4j-1.2.16/src"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiInput"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiInterpreter"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

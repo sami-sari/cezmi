@@ -1,0 +1,19 @@
+package com.samisari.commands.uml;
+
+import java.util.List;
+
+public class CmdClassMethod {
+	private String cmdClassId;
+	private String name;
+	private String returnType;
+	private AccessModifier accessModifier;
+	private boolean _abstract;
+	private boolean _static;
+	private boolean _final;
+	private boolean _transient;
+	private boolean _volatile;
+	private boolean _synchronized;
+	private boolean constructor;
+	private List<CmdClassMethodArgument> arguments;
+	private CmdCodeBlock code;
+}

@@ -1,0 +1,166 @@
+package com.samisari.cezmi.component;
+
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.geom.AffineTransform;
+import java.io.InputStreamReader;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.List;
+
+import com.samisari.cezmi.component.CmdConnectableRectangle;
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+import com.samisari.cezmi.core.HasComponents;
+import com.samisari.cezmi.core.History;
+
+public class CmdLayer<E extends AbstractCommand> extends CmdConnectableRectangle implements HasComponents, Serializable {
+	private static final long				serialVersionUID		= 1L;
+	private String							zOrder;
+	private boolean							visible					= true;
+	private History							components				= new History();
+	protected Rectangle						originalBounds;
+	protected HashMap<String, Rectangle>	originalChildrenBounds	= new HashMap<String, Rectangle>();
+
+	public CmdLayer() {
+		super();
+	}
+
+	@SuppressWarnings("unchecked")
+	@Override
+	public void run() {
+		super.run();
+		components.addAll((List<E>) CommandManager.getInstance().getSelectedCommands());
+		History h = CommandManager.getInstance().getHistory();
+		for (AbstractCommand c : components) {
+			if (c.isSelected())
+				h.remove(c);
+			c.setSelected(false);
+		}
+		computeBounds();
+		// Give relative bounds to components
+		for (AbstractCommand c : components) {
+			c.setParentId(this.getId());
+			c.getBounds().x -= getX();
+			c.getBounds().y -= getY();
+			originalChildrenBounds.put(c.getId(), c.getBounds());
+			c.boundaryChanged(new Rectangle(0, 0, 0, 0), c.getBounds());
+		}
+
+		CommandManager.getInstance().getHistory().add(this);
+		setVisible(true);
+		CommandManager.getInstance().endCommand();
+		ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+	}
+
+	private void computeBounds() {
+		int left = Integer.MAX_VALUE, top = Integer.MAX_VALUE, right = 0, bottom = 0;
+		for (AbstractCommand component : components) {
+			Rectangle b = component.getBounds();
+			if (b != null) {
+				if (b.x < left)
+					left = b.x;
+				if (b.y < top)
+					top = b.y;
+				if (b.x + b.width > right)
+					right = b.x + b.width;
+				if (b.y + b.height > bottom)
+					bottom = b.y + b.height;
+
+			}
+		}
+		setBounds(left, top, right - left, bottom - top);
+		originalBounds = getBounds();
+
+		boundaryChanged(getBounds(), getBounds());
+	}
+
+	@Override
+	public void paint(Graphics g) {
+		// super.paint(g);
+		if (isSelected()) {
+			super.paintSelection(g);
+		}
+		Graphics2D g2d = (Graphics2D) g;
+		double tx = (double) (getX());
+		double ty = (double) (getY());
+		AffineTransform translate = AffineTransform.getTranslateInstance(tx, ty);
+		g2d.transform(translate);
+		if (visible) {
+			if (components != null)
+				for (AbstractCommand cmd : components) {
+					cmd.paint(g);
+				}
+		}
+		translate = AffineTransform.getTranslateInstance(-tx, -ty);
+		g2d.transform(translate);
+	}
+
+	@Override
+	public void boundaryChanged(Rectangle oldBounds, Rectangle newBounds) {
+		super.boundaryChanged(oldBounds, newBounds);
+		// Good for moving sucks when scaling
+		if (originalChildrenBounds != null && !originalChildrenBounds.isEmpty())
+			for (AbstractCommand c : components) {
+				double scalex = ((double) newBounds.width) / ((double) originalBounds.width);
+				double scaley = ((double) newBounds.height) / ((double) originalBounds.height);
+				int x = (int) (((double) originalChildrenBounds.get(c.getId()).getX()) * scalex);
+				int width = (int) (((double) originalChildrenBounds.get(c.getId()).getWidth()) * scalex);
+				int y = (int) (((double) originalChildrenBounds.get(c.getId()).getY()) * scaley);
+				int height = (int) (((double) originalChildrenBounds.get(c.getId()).getHeight()) * scaley);
+				Rectangle newCBounds = new Rectangle(x, y, width, height);
+				Rectangle oldCBounds = c.getBounds();
+				c.setBounds(newCBounds);
+				c.boundaryChanged(oldCBounds, newCBounds);
+			}
+	}
+
+	@Override
+	public void deserialise(InputStreamReader in) throws Exception {
+		super.deserialise(in);
+		originalBounds = new Rectangle(getBounds());
+		for (AbstractCommand c : components) {
+			originalChildrenBounds.put(c.getId(), new Rectangle(c.getBounds()));
+		}
+
+	}
+
+	public String getzOrder() {
+		return zOrder;
+	}
+
+	public void setzOrder(String zOrder) {
+		this.zOrder = zOrder;
+	}
+
+	public boolean isVisible() {
+		return visible;
+	}
+
+	public void setVisible(boolean visible) {
+		this.visible = visible;
+	}
+
+	@Override
+	public History getComponents() {
+		return components;
+	}
+
+	@Override
+	public void setComponents(History components) {
+		this.components = components;
+	}
+
+	@Override
+	public void addComponent(AbstractCommand cmd) {
+		components.add(cmd);
+	}
+
+	@Override
+	public void removeComponent(AbstractCommand cmd) {
+		components.remove(cmd);
+	}
+
+}

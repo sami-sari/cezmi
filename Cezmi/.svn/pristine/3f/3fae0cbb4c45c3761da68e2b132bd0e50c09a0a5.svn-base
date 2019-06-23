@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiToolbox"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/SamiSariCommon"/>
+	<classpathentry kind="lib" path="/Libraries/logging/apache-log4j-1.2.16/log4j-1.2.16.jar" sourcepath="/Libraries/logging/apache-log4j-1.2.16/src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiInput"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiCore"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiUserInterfaceWidgets"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiSceneEditor"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

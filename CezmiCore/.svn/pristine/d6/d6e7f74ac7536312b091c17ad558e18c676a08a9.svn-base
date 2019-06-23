@@ -1,0 +1,19 @@
+package com.samisari.cezmi.core;
+
+public class ContextMenuAction implements Runnable {
+	private AbstractCommand command;
+
+	@Override
+	public void run() {
+
+	}
+
+	public AbstractCommand getCommand() {
+		return command;
+	}
+
+	public void setCommand(AbstractCommand command) {
+		this.command = command;
+	}
+
+}

@@ -1,0 +1,86 @@
+package com.samisari.graphics.commands;
+
+import java.awt.Graphics;
+import java.awt.Point;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.util.List;
+
+import javax.swing.JFileChooser;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.Operation;
+import com.samisari.cezmi.util.FileChooserHistory;
+
+import net.n3.nanoxml.XMLWriter;
+
+public class CmdSave extends AbstractCommand {
+	private static Logger logger=Logger.getLogger(CmdSave.class);
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -4566584904534584098L;
+
+	@Override
+	public void redo() {
+
+	}
+
+	@Override
+	public void undo() {
+
+	}
+	
+	public void run() {
+		// new JFileChooser JFileChooser.SAVE_DIALOG
+		JFileChooser fileChooser = new JFileChooser();
+		String lastPath = FileChooserHistory.get(this.getClass().getName());
+		if (lastPath != null)
+			fileChooser.setCurrentDirectory(new File(lastPath));
+		fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+		int result = fileChooser.showSaveDialog(null);
+		try {
+			if (result != JFileChooser.CANCEL_OPTION) {
+				File fileName = fileChooser.getSelectedFile();
+				FileChooserHistory.put(this.getClass().getName(), fileName.getParent());
+				
+				List<AbstractCommand> history = CommandManager.getDeaultInstance().getHistory();
+				
+				FileOutputStream out = new FileOutputStream(fileName);
+				out.write("<root>".getBytes(Charset.forName("UTF-8")));
+				for (AbstractCommand cmd:history) {
+					try {
+						logger.debug(cmd.getClass());
+						cmd.serialise(out);
+					} catch (Exception e) {
+						logger.error("Serialise Error", e);
+					} 
+				}
+				out.write("</root>".getBytes(Charset.forName("UTF-8")));
+
+				out.flush();
+				out.close();
+			}
+		} catch (FileNotFoundException e1) {
+			logger.error("File Not Found");
+		} catch (IOException e1) {
+			logger.error("Error", e1);
+		} finally {
+			CommandManager.getDeaultInstance().endCommand();
+		}
+
+	}
+
+	@Override
+	public Point getOperationPoint(Operation operation) {
+		return null;
+	}
+
+}

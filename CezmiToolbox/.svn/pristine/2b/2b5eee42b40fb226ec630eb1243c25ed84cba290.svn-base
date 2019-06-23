@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/java2d2"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/NetworkManagementPlugin"/>
+	<classpathentry kind="lib" path="/Libraries/logging/apache-log4j-1.2.16/log4j-1.2.16.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiAnimator"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiCore"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/SamiSariCommon"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiBasicComponents"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiUml"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

@@ -1,0 +1,213 @@
+package com.samisari.cezmi.component;
+
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Graphics;
+import java.awt.Point;
+import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
+import java.io.Serializable;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+import com.samisari.cezmi.core.Operation;
+import com.samisari.cezmi.core.Status;
+import com.samisari.common.util.ImageTool;
+
+public class CmdLine extends AbstractCommand implements Serializable, Cloneable {
+	/**
+	 * 
+	 */
+	private static final long	serialVersionUID	= 5226672462820897805L;
+	private static final Logger	logger				= Logger.getLogger(CmdLine.class);
+	private Color				color;
+
+	public CmdLine() {
+		super();
+		setColor(ConsolePropertyManager.getInstance().getForegroundColor());
+
+	}
+
+	@Override
+	public void mouseClicked(int x, int y) {
+		switch (getCurrentStatus()) {
+		case START: {
+			setBounds(x, y, 0, 0);
+			setCurrentStatus(Status.DRAGGING);
+		}
+			break;
+		case DRAGGING: {
+			setWidth(x - getX());
+			setHeight(y - getY());
+
+			Component consolePanel = ConsolePropertyManager.getInstance().getConsolePanel();
+			Cursor cursor = Cursor.getDefaultCursor();
+			consolePanel.setCursor(cursor);
+			CommandManager.getInstance().endCommand();
+			CommandManager.getInstance().getHistory().add(this);
+			ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+
+		}
+			break;
+		default:
+			break;
+		}
+
+	}
+
+	@Override
+	public void mouseMoved(int x, int y) {
+		if (getCurrentStatus().equals(Status.DRAGGING)) {
+			setWidth(x - getX());
+			setHeight(y - getY());
+			ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+		}
+	}
+
+	@Override
+	public void paint(Graphics g) {
+		super.beforePaint(g);
+		if (!getCurrentStatus().equals(Status.START)) {
+			logger.debug("paint" + getColor());
+			Color tmp = ConsolePropertyManager.getInstance().getForegroundColor();
+			if (isSelected())
+				g.setColor(Color.RED);
+			else
+				g.setColor(getColor());
+			g.drawLine(getX(), getY(), getRight(), getBottom());
+			g.setColor(tmp);
+		}
+		super.afterPaint(g);
+	}
+
+	@Override
+	public void run() {
+		super.run();
+		Component comp = ConsolePropertyManager.getInstance().getConsolePanel();
+		Cursor cursor = ImageTool.createCursor("LineCursor", "com/samisari/graphics/cursors/DefaultCursor.png", 16, 16);
+		comp.setCursor(cursor);
+	}
+
+	public Color getColor() {
+		return color;
+	}
+
+	public void setColor(Color color) {
+		this.color = color;
+	}
+
+	public boolean isInRange(int x, int y, int radius) {
+		boolean retval = false;
+		Point2D p1 = new Point2D.Float(Float.valueOf(getX()), Float.valueOf(getY()));
+		Point2D p2 = new Point2D.Float(Float.valueOf(getRight()), Float.valueOf(getBottom()));
+		Point2D p = new Point2D.Float(Float.valueOf(x), Float.valueOf(y));
+		Line2D.Float line = new Line2D.Float(p1, p2);
+		if (line.ptSegDist(p) < radius)
+			retval = true;
+		return retval;
+	}
+
+	@Override
+	public Point getOperationPoint(Operation operation) {
+		Point p = new Point();
+		switch (operation) {
+		case TOP_LEFT:
+			p.setLocation(getX(), getY() );
+			break;
+		case BOTTOM_RIGHT:
+			p.setLocation(getX() + getWidth(), getY() + getHeight() );
+			break;
+		case MOVE:
+			p.setLocation(getX() + (getWidth() / 2), getY() + (getHeight() / 2));
+			break;
+		default:
+			p = null;
+
+		}
+
+		return p;
+	}
+
+	public Operation getOperation(Point click) {
+
+		int l = getX();
+		int r = getRight();
+		int c = getX() + getWidth() / 2;
+		int t = getY();
+		int b = getY() + getHeight();
+		int m = getY() + getHeight() / 2;
+		int x = click.x;
+		int y = click.y;
+		int s = AbstractCommand.SELECTION_MARKER_SIZE;
+		// Context menu activator
+		if (x >= l + s && x <= l + 3 * s)
+			if (y >= t - s && y <= t + s) {
+				return Operation.CONTEXT_MENU;
+			}
+		if (x >= l - s && x <= l + s) {
+			if (y >= t - s && y <= t + s)
+				return Operation.TOP_LEFT;
+		}
+		if (x >= c - s && x <= c + s) {
+			if (y >= m - s && y <= m + s)
+				return Operation.MOVE;
+		}
+		if (x >= r - s && x <= r + s) {
+			if (y >= b - s && y <= b + s)
+				return Operation.BOTTOM_RIGHT;
+		}
+
+		return null;
+	}
+
+	@Override
+	public void move(Operation operation, int dx, int dy) {
+		switch (operation) {
+		case MOVE:
+		case TOP:
+		case BOTTOM:
+			super.move(Operation.MOVE, dx, dy);
+			break;
+		case LEFT:
+		case TOP_LEFT:
+		case BOTTOM_LEFT:
+			if ((getWidth() == 0) && ((dx < 15) && (dx > -15)))
+				dx = 0;
+			if ((getHeight() == 0) && ((dy < 15) && (dy > -15)))
+				dy = 0;
+			if ((getWidth() + dx > 0 && (getWidth() + dx) < 15) || (getWidth() + dx < 0 && ((getWidth() + dx) > -15)))
+				dx = getWidth();
+			if ((getHeight() + dy > 0 && getHeight() + dy < 15) || (getHeight() + dy < 0 && getHeight() + dy > -15))
+				dy = getHeight();
+			super.move(Operation.TOP_LEFT, dx, dy);
+			break;
+		case RIGHT:
+		case TOP_RIGHT:
+		case BOTTOM_RIGHT:
+			super.move(Operation.BOTTOM_RIGHT, dx, dy);
+			break;
+		default:
+			break;
+		}
+	}
+
+	@Override
+	protected void paintSelection(Graphics g) {
+		if (getBounds() != null) {
+			Color tmp = ConsolePropertyManager.getInstance().getForegroundColor();
+			g.setColor(SELECTED_COLOR);
+			g.fillOval(getX() - SELECTION_MARKER_SIZE, getY() - SELECTION_MARKER_SIZE, SELECTION_MARKER_SIZE * 2,
+					SELECTION_MARKER_SIZE * 2);
+			g.drawImage(PROCESS_ICON, getX() + SELECTION_MARKER_SIZE, getY() - SELECTION_MARKER_SIZE, null);
+			g.fillOval(getX() + getWidth() - SELECTION_MARKER_SIZE, getY() + getHeight() - SELECTION_MARKER_SIZE, SELECTION_MARKER_SIZE * 2,
+					SELECTION_MARKER_SIZE * 2);
+			g.drawOval(getX() + getWidth() / 2 - SELECTION_MARKER_SIZE, getY() + getHeight() / 2 - SELECTION_MARKER_SIZE,
+					SELECTION_MARKER_SIZE * 2, SELECTION_MARKER_SIZE * 2);
+			g.setColor(tmp);
+		}
+	}
+}

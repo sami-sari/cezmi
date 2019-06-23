@@ -1,0 +1,449 @@
+package com.samisari.cezmi.animator.gui;
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.DisplayMode;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.awt.Insets;
+import java.awt.Window;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.core.CommandManager;
+
+public class TimeLine extends JPanel {
+	private static final Logger		logger				= Logger.getLogger(TimeLine.class);
+	private static final long		serialVersionUID	= -6027460498496333415L;
+	private int						endFrame			= 300;
+	private int						frame				= 0;
+	private boolean					dragging;
+	private boolean					selecting;
+	private int						selectionStart;
+	private int						selectionEnd;
+	private JButton					closeBtn;
+	private JButton					playBtn;
+	private List<TimeLineListener>	listeners			= new ArrayList<TimeLineListener>();
+
+	/*
+	 * Frame 0: R(1,30) T(1,2,3)
+	 * 
+	 * Frame 1:
+	 */
+
+	public TimeLine(int frameNum) {
+		super();
+		this.endFrame = frameNum;
+		setFocusable(true);
+		setLayout(null);
+		setBackground(Color.BLACK);
+		Dimension dim = getScreenDimension();
+		setPreferredSize(new Dimension(dim.width, 100));
+		closeBtn = new JButton("X");
+		closeBtn.setBorder(null);
+		closeBtn.setMargin(new Insets(0, 0, 0, 0));
+		closeBtn.setFocusPainted(false);
+		closeBtn.setOpaque(false);
+		closeBtn.setBackground(Color.black);
+		closeBtn.setForeground(Color.RED);
+		closeBtn.setFont(new Font("Courrier", Font.BOLD, 14));
+		closeBtn.setBounds(dim.width - 25, 0, 20, 20);
+		closeBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				listeners.clear();
+				Window window = (Window) TimeLine.this.getTopLevelAncestor();
+				final Object object = window.getTreeLock();
+				object.toString();
+				window.setVisible(false);
+				CommandManager.getDeaultInstance().endCommand();
+			}
+		});
+		add(closeBtn);
+		playBtn = new JButton(">");
+		playBtn.setBorder(null);
+		playBtn.setMargin(new Insets(0, 0, 0, 0));
+		playBtn.setFocusPainted(false);
+		playBtn.setOpaque(false);
+		playBtn.setBackground(Color.black);
+		playBtn.setForeground(Color.RED);
+		playBtn.setFont(new Font("Courrier", Font.BOLD, 14));
+		playBtn.setBounds(125, 0, 20, 20);
+		playBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				for (TimeLineListener l : listeners) {
+					l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_PLAY, (int[]) null));
+				}
+			}
+		});
+		add(playBtn);
+		addMouseListener(new MouseListener() {
+
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				logger.debug("*** MOUSE RELEASED***");
+				if (dragging) {
+					int x = e.getX();
+					x -= 20;
+					setFrame(x / ((getWidth() - 40) / endFrame));
+					TimeLine.this.repaint();
+					if (isSelecting()) {
+						dragging = false;
+					}
+				}
+				TimeLine.this.grabFocus();
+			}
+
+			@Override
+			public void mousePressed(MouseEvent e) {
+				logger.debug("*** MOUSE PRESSED***");
+				if (e.getY() > 50) {
+					if (!dragging) {
+						int x = e.getX();
+						x -= 20;
+						setSelectionStart(x / ((getWidth() - 40) / endFrame));
+						setSelectionEnd(x / ((getWidth() - 40) / endFrame));
+					}
+					dragging = !dragging;
+				}
+				TimeLine.this.grabFocus();
+
+			}
+
+			@Override
+			public void mouseExited(MouseEvent e) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				// TODO Auto-generated method stub
+
+			}
+
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				TimeLine.this.grabFocus();
+
+			}
+		});
+		addMouseMotionListener(new MouseMotionListener() {
+
+			@Override
+			public void mouseMoved(MouseEvent e) {
+				logger.debug("M " + e.getX() + "," + e.getY());
+				if (dragging) {
+					int x = e.getX();
+					x -= 20;
+					setFrame(x / ((getWidth() - 40) / endFrame));
+					TimeLine.this.repaint();
+				}
+			}
+
+			@Override
+			public void mouseDragged(MouseEvent e) {
+				logger.debug("D " + e.getX() + "," + e.getY());
+				int x = e.getX();
+				x -= 20;
+				setFrame(x / ((getWidth() - 40) / endFrame));
+				setSelectionEnd(x / ((getWidth() - 40) / endFrame));
+				setSelecting(true);
+				TimeLine.this.repaint();
+
+			}
+		});
+
+		addKeyListener(new KeyListener() {
+
+			@Override
+			public void keyTyped(KeyEvent e) {
+
+			}
+
+			@Override
+			public void keyReleased(KeyEvent e) {
+				boolean processed = false;
+				char c = KeyEvent.getKeyText(e.getKeyCode()).charAt(0);
+				int ctrlmask = KeyEvent.CTRL_DOWN_MASK;
+				int shiftmask = KeyEvent.SHIFT_DOWN_MASK;
+				if ((e.getModifiersEx() & ctrlmask) == ctrlmask && (e.getModifiersEx() & ctrlmask) == ctrlmask) {
+					switch (c) {
+					case 'S':
+					case 's':
+						showScriptFrame();
+						
+					}
+				} else if ((e.getModifiersEx() & ctrlmask) == ctrlmask) {
+					switch (c) {
+					case 'C':
+					case 'c':
+						copyFrames();
+						break;
+
+					case 'V':
+					case 'v':
+						pasteFrames();
+						break;
+
+					case 'E':
+					case 'e':
+						extrapolate();
+						break;
+					case 'S':
+					case 's':
+						save();
+						break;
+					case 'O':
+					case 'o':
+						load();
+						break;
+					case 'D':
+					case 'd':
+						delete();
+						break;
+					case 'R':
+					case 'r':
+						showPropertiesDialog();
+						break;
+					case 'M':
+					case 'm':
+						makeMovie();
+						break;
+					default:
+						processed = false;
+						break;
+					}
+				} else if ((e.getModifiersEx() & shiftmask) == shiftmask) {
+					switch (c) {
+					case 'E':
+					case 'e':
+						edit();
+						break;
+					case 'S':
+					case 's':
+						addSound();
+						break;
+					default:
+						processed = false;
+						break;
+					}
+				}
+				if (processed)
+					e.consume();
+			}
+
+			@Override
+			public void keyPressed(KeyEvent e) {
+				if (!e.isConsumed()) {
+					switch (e.getKeyCode()) {
+					case KeyEvent.VK_LEFT:
+						setFrame(getFrame() - 1);
+						TimeLine.this.grabFocus();
+						break;
+					case KeyEvent.VK_RIGHT:
+						setFrame(getFrame() + 1);
+						TimeLine.this.grabFocus();
+						break;
+					}
+				}
+
+			}
+
+		});
+	}
+
+	protected void addSound() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_ADD_SOUND, (int[]) null));
+		}
+	}
+
+	protected void edit() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_EDIT, (int[]) null));
+		}
+
+	}
+
+	private void showPropertiesDialog() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_SHOW_PROPERTIES, (int[]) null));
+		}
+
+	}
+
+	protected void delete() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_DELETE, (int[]) null));
+		}
+
+	}
+
+	protected void load() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_LOAD, (int[]) null));
+		}
+	}
+
+	protected void save() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_SAVE, (int[]) null));
+		}
+
+	}
+
+	protected void pasteFrames() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_PASTE, (int[]) null));
+		}
+
+	}
+
+	protected void copyFrames() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_COPY, (int[]) null));
+		}
+	}
+
+	protected void makeMovie() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_MAKEMOVIE, (int[]) null));
+		}
+	}
+
+	private void extrapolate() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_EXTRAPOLATE, (int[]) null));
+		}
+	}
+
+	private void showScriptFrame() {
+		for (TimeLineListener l : listeners) {
+			l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.ACTION_SHOWSCRIPT, (int[]) null));
+		}
+
+	}
+
+	private Dimension getScreenDimension() {
+		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+		GraphicsDevice[] gs = ge.getScreenDevices();
+		DisplayMode displayMode = gs[0].getDisplayMode();
+		return new Dimension(displayMode.getWidth(), displayMode.getHeight());
+	}
+
+	@Override
+	protected void paintComponent(Graphics g) {
+		super.paintComponent(g);
+		Graphics2D g2 = (Graphics2D) g;
+		int w = getWidth();
+		w -= 40;
+		g2.setColor(Color.WHITE);
+		g2.drawString(Integer.toString(frame), 10, 10);
+		g2.fillRect(20, 40, w, 4);
+		int unit = w / endFrame;
+		if (unit > 3)
+			for (int i = 0; i < w; i += unit) {
+				g2.drawLine(i + 20, 40, i + 20, 45);
+			}
+		int u5 = unit * 5;
+		if (u5 > 3)
+			for (int i = 0; i < w; i += u5) {
+				g2.drawLine(i + 20, 40, i + 20, 60);
+			}
+		int u10 = unit * 10;
+		if (u10 > 3)
+			for (int i = 0; i < w; i += u10) {
+				g2.drawString(Integer.toString((i / u10) * 10), i + 16, 30);
+				g2.drawLine(i + 20, 40, i + 20, 65);
+			}
+
+		g2.fillPolygon(new int[] { (frame * unit) + 20, (frame * unit) + 25, (frame * unit) + 15, (frame * unit) + 20 }, new int[] { 45, 64, 64, 45 }, 3);
+		if (isSelecting()) {
+			g2.setColor(Color.YELLOW);
+			g2.drawLine(getSelectionStart() * unit + 20, 40, getSelectionStart() * unit + 20, 80);
+			g2.drawLine(getSelectionEnd() * unit + 20, 40, getSelectionEnd() * unit + 20, 80);
+			g2.fillRect(getSelectionStart() * unit + 20, 50, (getSelectionEnd() - getSelectionStart()) * unit, 10);
+		}
+	}
+
+	public int getFrame() {
+		return frame;
+	}
+
+	public void setFrame(int frame) {
+		int oldFrame = getFrame();
+		this.frame = frame;
+		if (oldFrame != frame) {
+			for (TimeLineListener l : listeners) {
+				l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.FRAME_CHANGED, new int[] { frame, oldFrame }));
+			}
+			this.repaint();
+		}
+	}
+
+	public void addListener(TimeLineListener l) {
+		listeners.add(l);
+	}
+
+	public boolean isSelecting() {
+		return selecting;
+	}
+
+	public void setSelecting(boolean selecting) {
+		this.selecting = selecting;
+	}
+
+	public int getSelectionStart() {
+		return selectionStart;
+	}
+
+	public void setSelectionStart(int selectionStart) {
+		this.selectionStart = selectionStart;
+	}
+
+	public int getSelectionEnd() {
+		return selectionEnd;
+	}
+
+	public void setSelectionEnd(int selectionEnd) {
+		int old = getSelectionEnd();
+		this.selectionEnd = selectionEnd;
+		if (old != selectionEnd) {
+			for (TimeLineListener l : listeners) {
+				l.onTimelineEvent(new TimeLineEvent(TimeLineEvent.SELECTION_CHANGED, new int[] { getSelectionStart(), getSelectionEnd() }));
+			}
+		}
+	}
+
+	public static void main(String[] args) {
+		JFrame frame = new JFrame();
+		frame.setUndecorated(true);
+		frame.setLayout(new BorderLayout());
+		frame.setSize(new Dimension(1000, 100));
+		frame.add(new TimeLine(300), BorderLayout.CENTER);
+		frame.setAlwaysOnTop(true);
+		frame.setVisible(true);
+		frame.pack();
+	}
+}

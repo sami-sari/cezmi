@@ -1,0 +1,430 @@
+package com.samisari.graphics.commands;
+
+import java.awt.Dimension;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JTable;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.table.DefaultTableModel;
+
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+import com.samisari.cezmi.core.History;
+
+public class CmdTableWizard extends JDialog {
+	/**
+	 * 
+	 */
+	private static final long				serialVersionUID	= -8062348027817119733L;
+	private static final Object[]			columnNames			= new Object[] { "Column Name", "Data Type", "Data Length", "Precision",
+			"Nullable", "Unique", "Description" };
+
+	private final JComboBox<CmdTable>		tableCmb			= new JComboBox<CmdTable>();
+	private final JComboBox<CmdDatabase>	databaseCmb			= new JComboBox<CmdDatabase>();
+	private final JPanel					definitionPanel		= new JPanel();
+	private final JTextField				nameTxt				= new JTextField();
+	private final JTextArea					tableCommentTxt		= new JTextArea();
+	private final JButton					getColumnsBtn		= new JButton("OK");
+	private final JButton					addBtn				= new JButton("+");
+	private final JButton					removeBtn			= new JButton("-");
+	private final JButton					saveBtn				= new JButton("Kaydet");
+
+	private final JPanel					dataPanel			= new JPanel();
+	private final JTabbedPane				tabPanel			= new JTabbedPane();;
+	private final JTextArea					sqlTxt				= new JTextArea();
+
+	private final JTable					table				= new JTable(
+			new Object[][] { { "OID", "VARCHAR", new Integer(32), new Integer(0), true, true, "Sample primary key" } }, columnNames);
+	private final JScrollPane				scroll				= new JScrollPane(table);
+	List<String>							tables				= new ArrayList<String>();
+	private JButton							runSqlBtn;
+	private JTable							dataTable;
+
+	public CmdTableWizard(final JFrame frame, final CmdTable cmd) {
+		super(frame, "Table Wizard", true);
+		createGui(cmd);
+	}
+
+	private void createGui(final CmdTable cmd) {
+		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+		setLayout(new GridBagLayout());
+		LayoutUtil gbc = new LayoutUtil().setWeightY(0.0d);
+		setSize(new Dimension(900, 700));
+		buildDatabaseListCombo();
+		databaseCmb.setBounds(250, 10, 500, 25);
+		add(databaseCmb, gbc);
+		tabPanel.setBounds(10, 20, 800, 600);
+		createDefinitionPanel(cmd);
+		tabPanel.addTab("Yapı", definitionPanel);
+		createDataPanel();
+		tabPanel.addTab("Veri", dataPanel);
+		add(tabPanel, gbc.incrementY().setWeightY(1.0d));
+		setVisible(true);
+	}
+
+	private void createDataPanel() {
+		dataPanel.setLayout(new GridBagLayout());
+		dataPanel.setSize(new Dimension(800, 600));
+		LayoutUtil gbc = new LayoutUtil();
+		JLabel nameLbl = new JLabel("Sorgu");
+		nameLbl.setBounds(10, 10, 100, 20);
+		dataPanel.add(nameLbl, gbc.setWeightX(0.0d).setWeightY(0.0d));
+		sqlTxt.setBounds(110, 10, 300, 50);
+		sqlTxt.setText("SELECT * FROM " + nameTxt.getText());
+		dataPanel.add(new JScrollPane(sqlTxt), gbc.incrementX());
+		runSqlBtn = new JButton("Çalıştır");
+		runSqlBtn.setBounds(10, 70, 100, 25);
+		runSqlBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				try {
+					CmdDatabase db = (CmdDatabase) databaseCmb.getSelectedItem();
+					if (db != null) {
+						Connection con = getConnection(db);
+						PreparedStatement pstm = con.prepareStatement(sqlTxt.getText());
+						ResultSet rs = pstm.executeQuery();
+						ResultSetMetaData md = rs.getMetaData();
+						int columnCount = md.getColumnCount();
+						dataTable.getColumnModel();
+						Object[] columnNames = new Object[columnCount];
+						for (int i = 0; i < columnCount; i++) {
+							columnNames[i] = md.getColumnName(i + 1);
+						}
+						List<Object[]> dataList = new ArrayList<Object[]>();
+						while (rs.next()) {
+							Object[] row = new Object[columnCount];
+							for (int i = 0; i < columnCount; i++) {
+								row[i] = rs.getObject(i + 1);
+							}
+							dataList.add(row);
+						}
+						Object[][] data = dataList.toArray(new Object[dataList.size()][columnCount]);
+						dataTable.setModel(new DefaultTableModel(data, columnNames));
+						dataTable.repaint();
+					} else {
+						JOptionPane.showMessageDialog(null, "Veri tabanı bağlantısı bulunamadı!");
+					}
+				} catch (SQLException e1) {
+					e1.printStackTrace();
+				}
+
+			}
+		});
+		dataPanel.add(runSqlBtn, gbc.incrementY().setX(0));
+
+		dataTable = new JTable();
+		// dataTable.setBounds(10, 110, 700, 300);
+		JScrollPane sc = new JScrollPane(dataTable);
+		sc.setBounds(10, 110, 700, 300);
+
+		dataPanel.add(sc, gbc.incrementY().setX(0).setWidth(2).setWeightX(1.0d).setWeightY(1.0d));
+
+	}
+
+	private void createDefinitionPanel(final CmdTable cmd) {
+		definitionPanel.setLayout(null);
+		definitionPanel.setSize(new Dimension(800, 600));
+		JLabel nameLbl = new JLabel("Name");
+		nameLbl.setBounds(10, 10, 100, 20);
+		definitionPanel.add(nameLbl);
+
+		buildTableListCombo();
+
+		JLabel tableCommentLbl = new JLabel("Comment");
+		tableCommentLbl.setBounds(10, 35, 100, 20);
+		definitionPanel.add(tableCommentLbl);
+		tableCommentTxt.setBounds(110, 35, 300, 50);
+		definitionPanel.add(tableCommentTxt);
+
+		scroll.setBounds(10, 110, 770, 300);
+		definitionPanel.add(scroll);
+
+		addBtn.setMargin(new Insets(0, 0, 0, 0));
+		addBtn.setBounds(10, 85, 20, 20);
+		addBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				int columnCount = table.getModel().getColumnCount();
+				int rowCount = table.getRowCount();
+				Object[][] data = new Object[rowCount + 1][columnCount];
+				int row = 0;
+				for (; row < rowCount; row++) {
+					for (int column = 0; column < columnCount; column++) {
+						Object val = table.getValueAt(row, column);
+						data[row][column] = val;
+					}
+				}
+				// Empty line
+				for (int column = 0; column < columnCount; column++) {
+					data[row] = new Object[] { "", "VARCHAR", new Integer(50), new Integer(0), false, false, "Sample column" };
+				}
+				table.setModel(new DefaultTableModel(data, columnNames));
+				scroll.repaint();
+
+			}
+		});
+		definitionPanel.add(addBtn);
+
+		removeBtn.setMargin(new Insets(0, 0, 0, 0));
+		removeBtn.setBounds(40, 85, 20, 20);
+		removeBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				int columnCount = table.getModel().getColumnCount();
+				int rowCount = table.getRowCount();
+				Object[][] data = new Object[rowCount - 1][columnCount];
+				int row = 0;
+				int removed = 0;
+				if (table.getSelectedRow() > -1) {
+					for (; row < rowCount; row++) {
+						if (row != table.getSelectedRow())
+							for (int column = 0; column < columnCount; column++) {
+								Object val = table.getValueAt(row, column);
+								data[row - removed][column] = val;
+							}
+						else
+							removed = 1;
+					}
+					table.setModel(new DefaultTableModel(data, columnNames));
+					scroll.repaint();
+				}
+			}
+		});
+		definitionPanel.add(removeBtn);
+
+		saveBtn.setMargin(new Insets(0, 0, 0, 0));
+		saveBtn.setBounds(600, 420, 70, 20);
+		saveBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				int rowCount = table.getRowCount();
+				for (int row = 0; row < rowCount; row++) {
+					CmdTableColumn c = new CmdTableColumn();
+					String name = (String) table.getValueAt(row, 0);
+					String dataType = (String) table.getValueAt(row, 1);
+					Integer dataLength = table.getValueAt(row, 2) instanceof Integer ? (Integer) table.getValueAt(row, 2)
+							: Integer.valueOf((String) table.getValueAt(row, 2));
+					Integer precision = table.getValueAt(row, 3) instanceof Integer ? (Integer) table.getValueAt(row, 3)
+							: Integer.valueOf((String) table.getValueAt(row, 3));
+					Boolean nullable = table.getValueAt(row, 4) instanceof Boolean ? (Boolean) table.getValueAt(row, 4)
+							: Boolean.valueOf((String) table.getValueAt(row, 4));
+					Boolean unique = table.getValueAt(row, 5) instanceof Boolean ? (Boolean) table.getValueAt(row, 5)
+							: Boolean.valueOf((String) table.getValueAt(row, 5));
+					String comment = (String) table.getValueAt(row, 6);
+					c.setName(name);
+					c.setType(dataType);
+					c.setDecimalDigits(precision);
+					c.setSize(dataLength);
+					c.setNullable(nullable);
+					c.setUnique(unique);
+					c.setRemark(comment);
+					c.setIndex(row);
+					c.setParentId(cmd.getId());
+					c.setX(cmd.getCommand().getX());
+					c.setY(cmd.getCommand().getY() + row * 20 + 30);
+					c.setWidth(cmd.getCommand().getWidth());
+					c.setHeight(20);
+					cmd.addComponent(c);
+					// cmd.getColumns().add(c);
+				}
+				// cmd.setColumns(columns);
+				cmd.setName(tableCmb.getItemCount() > 0 ? ((CmdTable) tableCmb.getSelectedItem()).getName() : nameTxt.getText());
+				CmdTableWizard.this.setVisible(false);
+				ConsolePropertyManager.getInstance().getApplicationFrame().repaint();
+			}
+		});
+		definitionPanel.add(saveBtn);
+
+		loadProperties(cmd);
+	}
+
+	private List<CmdDatabase> getDatabases() {
+		History history = CommandManager.getInstance().getHistory();
+		List<CmdDatabase> list = new ArrayList<CmdDatabase>();
+		for (AbstractCommand c : history) {
+			if (c.getClass().getSimpleName().equals("CmdDatabase")) {
+				list.add((CmdDatabase) c);
+			}
+		}
+		return list;
+	}
+
+	private Connection getConnection(CmdDatabase db) {
+		try {
+			Class.forName(db.getDriver());
+			return DriverManager.getConnection(db.getUrl(), db.getUsername(), db.getPassword());
+		} catch (Throwable e) {
+			e.printStackTrace();
+		}
+		return null;
+	}
+
+	private List<CmdTable> getTables(final CmdDatabase db) {
+		List<CmdTable> tables = new ArrayList<CmdTable>();
+		if (db != null) {
+			ResultSet rs = null;
+			try {
+				Connection con = getConnection(db);
+				DatabaseMetaData dbMeta = con.getMetaData();
+				rs = dbMeta.getTables(db.getCatalog(), db.getSchema(), "%", new String[] { "TABLE" });
+				while (rs.next()) {
+					CmdTable table = new CmdTable();
+					table.setName(rs.getString("TABLE_NAME"));
+					tables.add(table);
+				}
+			} catch (Throwable e) {
+				e.printStackTrace();
+			} finally {
+				try {
+					rs.close();
+				} catch (Exception e) {
+					// ignore
+				}
+			}
+		}
+		return tables;
+	}
+
+	private void buildDatabaseListCombo() {
+		final List<CmdDatabase> dbList = getDatabases();
+		for (CmdDatabase db : dbList)
+			databaseCmb.addItem(db);
+		databaseCmb.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// TODO Auto-generated method stub
+
+			}
+		});
+
+	}
+
+	private void buildTableListCombo() {
+		CmdDatabase db = (CmdDatabase) databaseCmb.getSelectedItem();
+		final List<CmdTable> tables;
+		if (db != null) {
+			tables = getTables(db);
+		} else {
+			tables = new ArrayList<CmdTable>();
+		}
+
+		if (tables.size() > 0) {
+			tableCmb.setModel(new DefaultComboBoxModel<CmdTable>(tables.toArray(new CmdTable[tables.size()])));
+			tableCmb.setBounds(115, 10, 200, 20);
+			definitionPanel.add(tableCmb);
+
+			getColumnsBtn.setBounds(320, 10, 50, 20);
+			definitionPanel.add(getColumnsBtn);
+			getColumnsBtn.addActionListener(new ActionListener() {
+
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					try {
+						CmdDatabase db = (CmdDatabase) databaseCmb.getSelectedItem();
+						DatabaseMetaData m = getConnection(db).getMetaData();
+						ResultSet rs = m.getColumns(null, db.getSchema(), ((CmdTable) tableCmb.getSelectedItem()).getName(), "%");
+
+						List<CmdTableColumn> columns = new ArrayList<CmdTableColumn>();
+						while (rs.next()) {
+							CmdTableColumn column = new CmdTableColumn();
+							column.setName(rs.getString("COLUMN_NAME"));
+							column.setType(rs.getString("TYPE_NAME"));
+							column.setRemark(rs.getString("REMARKS"));
+							column.setSize(rs.getInt("COLUMN_SIZE"));
+							column.setDecimalDigits(rs.getInt("DECIMAL_DIGITS"));
+							column.setNullable(rs.getString("NULLABLE").equals("YES"));
+							column.setIndex(rs.getInt("ORDINAL_POSITION"));
+							columns.add(column);
+						}
+						Object[][] data = new Object[columns.size()][7];
+						for (int row = 0; row < columns.size(); row++) {
+							data[row][0] = columns.get(row).getName();
+							data[row][1] = columns.get(row).getType();
+							data[row][2] = columns.get(row).getSize();
+							data[row][3] = columns.get(row).getDecimalDigits();
+							data[row][4] = columns.get(row).isNullable();
+							data[row][5] = false;
+							data[row][6] = columns.get(row).getRemark();
+
+						}
+						table.setModel(new DefaultTableModel(data, columnNames));
+						scroll.repaint();
+					} catch (SQLException e1) {
+						e1.printStackTrace();
+					}
+				}
+			});
+		} else {
+			nameTxt.setBounds(115, 10, 200, 20);
+			definitionPanel.add(nameTxt);
+		}
+	}
+
+	void loadProperties(final CmdTable cmd) {
+		nameTxt.setText(cmd.getName());
+		tableCmb.setSelectedItem(cmd);
+		Object[][] data ;
+		if (cmd.getComponents() != null && cmd.getComponents().size() > 0) {
+			data = new Object[cmd.getComponents().size() - 1][7];
+			for (int i = 0; i < cmd.getComponents().size(); i++) {
+				if (cmd.getComponents().get(i) instanceof CmdTableColumn) {
+					CmdTableColumn column = (CmdTableColumn) cmd.getComponents().get(i);
+					data[column.getIndex()][0] = column.getName();
+					data[column.getIndex()][1] = column.getType();
+					data[column.getIndex()][2] = column.getSize();
+					data[column.getIndex()][3] = column.getDecimalDigits();
+					data[column.getIndex()][4] = column.isNullable();
+					data[column.getIndex()][5] = column.isUnique();
+					data[column.getIndex()][6] = column.getRemark();
+				}
+			}
+		} else {
+			data=new Object[0][7];
+		}
+		table.setModel(new DefaultTableModel(data, columnNames));
+	}
+
+	public static void main(String[] args) {
+		// Application.getInstance().setUi();
+		CmdTable cmd = new CmdTable();
+		cmd.setName("Test");
+		CommandManager.getInstance().getHistory().add(cmd);
+
+		CmdDatabase dbCmd = new CmdDatabase();
+		dbCmd.setUrl("jdbc:postgresql://localhost:5432/onderakademi");
+		dbCmd.setUsername("postgres");
+		dbCmd.setPassword("postgres");
+		CommandManager.getInstance().getHistory().add(dbCmd);
+
+		// new CmdTableWizard(Application.getInstance().getFrame(), cmd);
+	}
+}

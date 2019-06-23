@@ -1,0 +1,8 @@
+initialization(window, indent, name, width, height, component) ::= <<
+<indent>setSize(new Dimension(<width>, <height>));
+<indent>setLayoutManager(null);
+<indent>setDecorated(true);
+
+getContentPane().add(<component>)
+
+>>

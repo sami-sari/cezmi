@@ -1,0 +1,162 @@
+package com.samisari.graphics.core;
+
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.event.KeyListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+
+import javax.swing.JFrame;
+import javax.swing.JSplitPane;
+import javax.swing.JTabbedPane;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.ConsoleMouseListener;
+import com.samisari.cezmi.core.ConsoleMouseMotionListener;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+import com.samisari.cezmi.core.Java2DFPanel;
+import com.samisari.cezmi.core.Java2DPanelComponentListener;
+import com.samisari.cezmi.util.FileChooserHistory;
+import com.samisari.graphics.toolbox.ToolBox;
+import com.samisari.gui.panel.HistoryPanel;
+import com.samisari.gui.panel.PropertiesPanel;
+
+public class Application extends WindowAdapter {
+	public static final org.apache.log4j.Logger logger = Logger.getLogger(Application.class);
+	private static final Application instance;
+	static {
+		instance = new Application();
+	}
+
+	public static Application getInstance() {
+		return instance;
+	}
+
+	private Application() {
+		try {
+			Preferences.getInstance();
+		} catch (Throwable t) {
+		}
+	}
+
+	private JFrame frame;
+	private Java2DFPanel consolePanel;
+	private ToolBox toolBox;
+	private HistoryPanel historyPanel;
+	private PropertiesPanel propertiesPanel;
+	private JSplitPane horizontalSplit;
+	private JSplitPane rightSplit;
+	private JTabbedPane tabs;
+
+	/**
+	 * Sets up user interface components of the application
+	 */
+	public void setUi() {
+		logger.debug("---- Starting Application ----"); 
+		Preferences prefs = Preferences.getInstance();
+		frame = new JFrame(Messages.getString("Application.1")); 
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.addWindowListener(this);
+		frame.setBounds(prefs.getWindow());
+		frame.setPreferredSize(prefs.getWindow().getSize());
+		
+		logger.debug("---- Creating Java2DFPanel ----"); 
+		consolePanel = new Java2DFPanel();
+		consolePanel.setBackground(Color.black);
+		toolBox = new ToolBox();
+		
+		propertiesPanel = new PropertiesPanel();
+		propertiesPanel.setPreferredSize(new Dimension(200, 800));
+		historyPanel = new HistoryPanel();
+		
+		tabs = new JTabbedPane();
+		tabs.addTab(Messages.getString("Application.3"), propertiesPanel);
+		tabs.addTab(Messages.getString("Application.4"), historyPanel);
+		
+		rightSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, toolBox,tabs);
+		rightSplit.setDividerLocation(prefs.getRightSplitLocation());
+		rightSplit.setOneTouchExpandable(true);
+
+		horizontalSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, rightSplit, consolePanel);
+		horizontalSplit.setDividerLocation(prefs.getHorizontalSplitLocation());
+		horizontalSplit.setOneTouchExpandable(true);
+		
+		frame.add(horizontalSplit);
+		logger.debug("---- Initializing ConsolePropertyManager instance ----"); 
+		ConsolePropertyManager.getInstance().setConsolePanel(consolePanel);
+		ConsolePropertyManager.getInstance().setApplicationFrame(frame);
+		logger.debug("---- Initializing CommandManager instance ----"); 
+		CommandManager.getInstance();
+		logger.debug("---- Adding ConsoleMouseListener ----"); 
+		ConsoleMouseListener masterListener = new ConsoleMouseListener();
+		consolePanel.addMouseListener(masterListener);
+		logger.debug("---- Adding ConsoleMouseMotionListener ----"); 
+		consolePanel.addMouseMotionListener(masterListener);
+		ConsoleMouseMotionListener motionListener = new ConsoleMouseMotionListener();
+		consolePanel.addMouseMotionListener(motionListener);
+		consolePanel.addKeyListener((KeyListener)masterListener);
+		logger.debug("---- Adding Java2DPanelComponentListener ----"); 
+		consolePanel.addComponentListener(new Java2DPanelComponentListener());
+		frame.pack();
+		logger.debug("---- Display Main Frame ----"); 
+		frame.setVisible(true);
+
+	}
+
+	public static void main(String[] args) throws InterruptedException {
+		Application.getInstance().setUi();
+	}
+
+	public JFrame getFrame() {
+		return frame;
+	}
+
+	public void setFrame(JFrame frame) {
+		this.frame = frame;
+	}
+
+	public Java2DFPanel getConsolePanel() {
+		return consolePanel;
+	}
+
+	public void setConsolePanel(Java2DFPanel consolePanel) {
+		this.consolePanel = consolePanel;
+	}
+
+	public ToolBox getToolBox() {
+		return toolBox;
+	}
+
+	public void setToolBox(ToolBox toolBox) {
+		this.toolBox = toolBox;
+	}
+
+	@Override
+	public void windowOpened(WindowEvent e) {
+
+	}
+
+	@Override
+	public void windowClosing(WindowEvent e) {
+		Preferences.getInstance().save();
+		FileChooserHistory.save();
+	}
+
+	public JSplitPane getHorizontalSplit() {
+		return horizontalSplit;
+	}
+
+	public void setHorizontalSplit(JSplitPane horizontalSplit) {
+		this.horizontalSplit = horizontalSplit;
+	}
+
+	public JSplitPane getRightSplit() {
+		return rightSplit;
+	}
+
+	public void setRightSplit(JSplitPane rightSplit) {
+		this.rightSplit = rightSplit;
+	}
+}

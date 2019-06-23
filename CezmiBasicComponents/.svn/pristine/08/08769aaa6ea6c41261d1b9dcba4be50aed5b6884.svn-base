@@ -1,0 +1,461 @@
+package com.samisari.cezmi.component;
+
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Line2D;
+import java.awt.geom.Point2D;
+import java.awt.image.BufferedImage;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.io.InputStreamReader;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.log4j.Logger;
+import org.w3c.dom.Element;
+
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+import com.samisari.cezmi.core.HistoryListener;
+import com.samisari.cezmi.core.Operation;
+import com.samisari.cezmi.core.Status;
+import com.samisari.cezmi.util.Util;
+import com.samisari.common.util.ImageTool;
+
+public class CmdConnector extends AbstractCommand implements HistoryListener, PropertyChangeListener, Serializable {
+	private static final long			serialVersionUID	= 1L;
+	private static final Logger			logger				= Logger.getLogger(CmdConnector.class);
+	private static final BufferedImage	imgro				= ImageTool.getResourceAsImage(
+			CmdConnector.class.getName().substring(0, CmdConnector.class.getName().lastIndexOf('.')).replaceAll("\\.", "/")
+					+ "/resources/arrowhead.png");
+	private String						sourceObjectId;
+	private String						targetObjectId;
+	private List<Point>					points				= new ArrayList<Point>();
+	private String						startText;
+	private String						endText;
+	private String						middleText;
+	private static final int			radius				= 5;
+
+	@Override
+	public void mouseClicked(int x, int y) {
+		// logger.debug("Mouse clicked: left=" + x + ", right=" + y);
+		switch (getCurrentStatus()) {
+		case START: {
+			AbstractCommand so = CommandManager.getInstance().getCommandListInRange(x, y, radius);
+			if (so != null)
+				if (so instanceof CmdConnectable) {
+					setSourceObjectId(so.getId());
+					setCurrentStatus(Status.OBJECT_1_SELECTED);
+				}
+		}
+			break;
+		case OBJECT_1_SELECTED: {
+			AbstractCommand so = CommandManager.getInstance().getCommandListInRange(x, y, radius);
+
+			if (sourceObjectId == null) {
+				setCurrentStatus(Status.START);
+				return;
+			}
+			if (so != null)
+				if (so instanceof CmdConnectable)
+					targetObjectId = so.getId();
+				else {
+					return;
+				}
+			deducePoints();
+			getSourceObject().addPropertyChangeListener(this);
+			getTargetObject().addPropertyChangeListener(this);
+			CommandManager.getInstance().getHistory().add(this);
+			CommandManager.getInstance().endCommand();
+			ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+			CommandManager.getInstance().getHistory().addListener(this);
+			setCurrentStatus(Status.START);
+		}
+		default:
+			break;
+		}
+
+	}
+
+	private void deducePoints() {
+		if (getSourceObject() == null || getTargetObject() == null || getSourceObject().getBounds() == null
+				|| getTargetObject().getBounds() == null)
+			return;
+		if (getPoints() != null && isConnected())
+			return;
+
+		Rectangle source = new Rectangle(getSourceObject().getBounds());
+		Rectangle target = new Rectangle(getTargetObject().getBounds());
+		AbstractCommand ancestor = getSourceObject();
+		while ((ancestor = CommandManager.getInstance().getCommand(ancestor.getParentId())) != null) {
+			source.x += ancestor.getBounds().x;
+			source.y += ancestor.getBounds().y;
+		}
+		ancestor = getTargetObject();
+		while ((ancestor = CommandManager.getInstance().getCommand(ancestor.getParentId())) != null) {
+			target.x += ancestor.getBounds().x;
+			target.y += ancestor.getBounds().y;
+		}
+
+		points.clear();
+		if (source.x + source.width < target.x) {
+			if (source.y + source.height < target.y) {
+				points.add(new Point(source.x + source.width, source.y + source.height / 2));
+				points.add(new Point(target.x + target.width / 2, source.y + source.height / 2));
+				points.add(new Point(target.x + target.width / 2, target.y));
+			} else if (target.y + target.height < source.y) {
+				points.add(new Point(source.x + source.width, source.y + source.height / 2));
+				points.add(new Point(target.x + target.width / 2, source.y + source.height / 2));
+				points.add(new Point(target.x + target.width / 2, target.y + target.height));
+			} else {
+				points.add(new Point(source.x + source.width, source.y + source.height / 2));
+				int midx = source.x + source.width + (target.x - (source.x + source.width)) / 2;
+				points.add(new Point(midx, source.y + source.height / 2));
+				points.add(new Point(midx, target.y + target.height / 2));
+				points.add(new Point(target.x, target.y + target.height / 2));
+			}
+		} else if (target.x + target.width < source.x) {
+			if (source.y + source.height < target.y) {
+				points.add(new Point(source.x, source.y + source.height / 2));
+				points.add(new Point(target.x + target.width / 2, source.y + source.height / 2));
+				points.add(new Point(target.x + target.width / 2, target.y));
+			} else if (target.y + target.height < source.y) {
+				points.add(new Point(source.x, source.y + source.height / 2));
+				points.add(new Point(target.x + target.width / 2, source.y + source.height / 2));
+				points.add(new Point(target.x + target.width / 2, target.y + target.height));
+			} else {
+				points.add(new Point(source.x, source.y + source.height / 2));
+				int midx = target.x + target.width + (source.x - (target.x + target.width)) / 2;
+				points.add(new Point(midx, source.y + source.height / 2));
+				points.add(new Point(midx, target.y + target.height / 2));
+				points.add(new Point(target.x + target.width, target.y + target.height / 2));
+			}
+		} else {
+			if (source.y + source.height < target.y) {
+				points.add(new Point(source.x + source.width / 2, source.y + source.height));
+				int midy = source.y + source.height + (target.y - (source.y + source.height)) / 2;
+				points.add(new Point(source.x + source.width / 2, midy));
+				points.add(new Point(target.x + target.width / 2, midy));
+				points.add(new Point(target.x + target.width / 2, target.y));
+			} else if (target.y + target.height < source.y) {
+				points.add(new Point(source.x + source.width / 2, source.y));
+				int midy = source.y + source.height + (target.y - (source.y + source.height)) / 2;
+				points.add(new Point(source.x + source.width / 2, midy));
+				points.add(new Point(target.x + target.width / 2, midy));
+				points.add(new Point(target.x + target.width / 2, target.y + target.height));
+			}
+
+		}
+	}
+
+	private boolean isConnected() {
+		if (points != null && points.size() > 1) {
+			Point lastPoint = points.get(points.size() - 1);
+			Point firstPoint = points.get(0);
+			Rectangle sr = getSourceObject().getBounds();
+			Rectangle tr = getTargetObject().getBounds();
+			Rectangle nsr = new Rectangle(sr.x - 1, sr.y - 1, sr.width + 2, sr.height + 2);
+			Rectangle ntr = getTargetObject().getBounds();
+			tr = new Rectangle(tr.x - 1, tr.y - 1, tr.width + 2, tr.height + 2);
+
+			if (nsr.contains(firstPoint) && ntr.contains(lastPoint) && !sr.contains(firstPoint) && !tr.contains(lastPoint))
+				return true;
+		}
+		return false;
+	}
+
+	@Override
+	public void mouseMoved(int x, int y) {
+		if (getCurrentStatus() == Status.OBJECT_1_SELECTED) {
+			points.add(new Point(x, y));
+			ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+		}
+	}
+
+	public void drawLineArrow(Graphics g, Point lineStart, Point lineEnd) {
+		Color tmp = g.getColor();
+		g.setColor(Color.blue);
+		double slope = Util.slope(lineStart, lineEnd);
+		Graphics2D g2d = (Graphics2D) g;
+		BufferedImage img = new BufferedImage(imgro.getWidth(null), imgro.getHeight(null), BufferedImage.TYPE_INT_ARGB);
+		g2d = img.createGraphics();
+		AffineTransform tx = AffineTransform.getRotateInstance(slope, 5.5, 5.5);
+		g2d.drawImage(imgro, tx, null);
+
+		int dx = (int) (6.0f * Math.cos(slope));
+		int dy = (int) (6.0f * Math.sin(slope));
+		g2d.drawImage(img, lineEnd.x - 5 - dx, lineEnd.y - 5 - dy, null);
+		g2d.setColor(tmp);
+	}
+
+	@Override
+	public void paint(Graphics g) {
+		super.beforePaint(g);
+		Color tmp = ConsolePropertyManager.getInstance().getForegroundColor();
+		g.setColor(Color.blue);
+
+		for (int i = 0; i < points.size() - 1; i++)
+			Util.drawLine(g, points.get(i), points.get(i + 1));
+		int indx = points.size() - 1;
+		if (indx > 1)
+			drawLineArrow(g, points.get(indx - 1), points.get(indx));
+		if (points != null && points.size() > 1)
+			if (getCurrentStatus() == Status.START) {
+				if (points.get(0).x < points.get(1).x)
+					g.drawString(getStartText() == null ? "" : getStartText(), points.get(0).x + 4, points.get(0).y - 2);
+				else
+					g.drawString(getStartText() == null ? "" : getStartText(), points.get(1).x + 4, points.get(1).y - 2);
+				if (points.get(indx).x < points.get(indx - 1).x)
+					g.drawString(getEndText() == null ? "" : getEndText(), points.get(indx).x + 4, points.get(indx).y - 2);
+				else
+					g.drawString(getEndText() == null ? "" : getEndText(), points.get(indx - 1).x + 4, points.get(indx - 1).y - 2);
+			}
+		g.setColor(tmp);
+		super.afterPaint(g);
+	}
+
+	@Override
+	protected void paintSelection(Graphics g) {
+		if (CommandManager.getInstance().getCommand(sourceObjectId) != null
+				&& CommandManager.getInstance().getCommand(targetObjectId) != null && points != null && points.size() > 0) {
+			Color tmp = ConsolePropertyManager.getInstance().getForegroundColor();
+			g.setColor(SELECTED_COLOR);
+			// Draw operation boxes at points
+			for (Point p : points) {
+				g.drawRect(p.x - SELECTION_MARKER_SIZE, p.y - SELECTION_MARKER_SIZE, SELECTION_MARKER_SIZE * 2, SELECTION_MARKER_SIZE * 2);
+			}
+			// Draw Operation boxes at edges
+			for (int i = 0; i < points.size() - 1; i++) {
+				Point p0 = points.get(i);
+				Point p1 = points.get(i + 1);
+				int epx = p0.x + ((p1.x - p0.x) / 2);
+				int epy = p0.y + ((p1.y - p0.y) / 2);
+				g.drawRect(epx - SELECTION_MARKER_SIZE, epy - SELECTION_MARKER_SIZE, SELECTION_MARKER_SIZE * 2, SELECTION_MARKER_SIZE * 2);
+			}
+
+			g.setColor(tmp);
+		}
+	}
+
+	public static String getButtonName() {
+		return "Con";
+	}
+
+	@Override
+	public void propertyChange(PropertyChangeEvent property) {
+		if (isConnected())
+			return;
+		deducePoints();
+		ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+	}
+
+	public boolean isInRange(int x, int y, int radius) {
+		boolean retval = false;
+		for (int i = 0; i < points.size() - 1; i++) {
+			Point2D p1 = new Point2D.Float(Float.valueOf(points.get(i).x), Float.valueOf(points.get(i).y));
+			Point2D p2 = new Point2D.Float(Float.valueOf(points.get(i + 1).x), Float.valueOf(points.get(i + 1).y));
+			Point2D p = new Point2D.Float(Float.valueOf(x), Float.valueOf(y));
+			Line2D.Float line = new Line2D.Float(p1, p2);
+			if (line.ptSegDist(p) < radius)
+				retval = true;
+		}
+		return retval;
+	}
+
+	public Operation getOperation(Point click) {
+		logger.info("Click point(" + click.x + "," + click.y + ")");
+		operationPoint = click;
+		Point2D pclick = new Point2D.Float(Float.valueOf(click.x), Float.valueOf(click.y));
+		for (int i = 0; i < points.size(); i++) {
+			Point2D p = new Point2D.Float(Float.valueOf(points.get(i).x), Float.valueOf(points.get(i).y));
+			if (p.distance(pclick) < SELECTION_MARKER_SIZE)
+				return Operation.MOVE;
+		}
+		for (int i = 0; i < points.size() - 1; i++) {
+			Point p0 = points.get(i);
+			Point p1 = points.get(i + 1);
+			float epx = (float) (p0.x + ((p1.x - p0.x) / 2));
+			float epy = (float) (p0.y + ((p1.y - p0.y) / 2));
+			Point2D p = new Point2D.Float(epx, epy);
+			if (p.distance(pclick) < SELECTION_MARKER_SIZE)
+				return Operation.MOVE_CONNECTOR_EDGE;
+		}
+		for (int i = 0; i < points.size() - 1; i++) {
+			Point p0 = points.get(i);
+			Point p1 = points.get(i + 1);
+			Line2D l = new Line2D.Double(p0, p1);
+			if (l.ptLineDist(click) < SELECTION_MARKER_SIZE) {
+				points.add(i + 1, click);
+				return Operation.MOVE;
+			}
+		}
+
+		operationPoint = null;
+		return null;
+	}
+
+	@Override
+	public void morph(Operation operation, int ex, int ey) {
+		if (operationPoint == null)
+			return;
+		for (Point p : points) {
+			if (Math.abs(p.x - operationPoint.x) < SELECTION_MARKER_SIZE && Math.abs(p.y - operationPoint.y) < SELECTION_MARKER_SIZE) {
+				operationPoint.x = p.x;
+				operationPoint.y = p.y;
+				break;
+			}
+		}
+		int indx = points.indexOf(operationPoint);
+		if (indx > -1 && indx < points.size() && operationPoint != null) {
+			points.set(indx, new Point(operationPoint.x + ex, operationPoint.y + ey));
+			operationPoint = points.get(indx);
+		}
+
+		if (points.get(0).equals(operationPoint)) {
+			AbstractCommand sourceObject = CommandManager.getInstance().getCommand(sourceObjectId);
+			Point p0 = points.get(0);
+			Point ps = new Point(sourceObject.getBounds().x, sourceObject.getBounds().y);
+			int ws = sourceObject.getBounds().width;
+			int hs = sourceObject.getBounds().height;
+			if (Math.abs(p0.x - ps.x) > 10 && Math.abs(p0.x - (ps.x + ws)) > 10 && p0.y != ps.y && p0.y != ps.y + hs) {
+				points.add(0, new Point(ps.x, p0.y));
+			}
+		}
+	}
+
+	public void move(Operation operation, int dx, int dy) {
+		if (operationPoint != null) {
+			logger.info("Point(" + operationPoint.x + "," + operationPoint.y + ")");
+			for (int i = 0; i < points.size(); i++) {
+				Point p = points.get(i);
+				if (Math.abs(p.x - operationPoint.x) < SELECTION_MARKER_SIZE && Math.abs(p.y - operationPoint.y) < SELECTION_MARKER_SIZE) {
+					operationPoint.x = p.x;
+					operationPoint.y = p.y;
+					points.set(i, new Point(dx, dy));
+					operationPoint = points.get(i);
+				} else if (i < points.size() - 1) {
+					Point p1 = points.get(i + 1);
+					Point edgePoint = new Point();
+					edgePoint.x = p.x + ((p1.x - p.x) / 2);
+					edgePoint.y = p.y + ((p1.y - p.y) / 2);
+					if (Math.abs(edgePoint.x - operationPoint.x) < SELECTION_MARKER_SIZE
+							&& Math.abs(edgePoint.y - operationPoint.y) < SELECTION_MARKER_SIZE) {
+						operationPoint.x = edgePoint.x;
+						operationPoint.y = edgePoint.y;
+						if (p.y == p1.y) {
+							points.set(i, new Point(p.x, dy));
+							points.set(i + 1, new Point(p1.x, dy));
+						} else if (p.x == p1.x) {
+							points.set(i, new Point(dx, p.y));
+							points.set(i + 1, new Point(dx, p1.y));
+						}
+						operationPoint = edgePoint;
+					}
+				}
+			}
+		}
+	}
+
+	Point operationPoint;
+
+	@Override
+	public Point getOperationPoint(Operation operation) {
+
+		return operationPoint;
+	}
+
+	private CmdConnectableRectangle getSourceObject() {
+		return (CmdConnectableRectangle) CommandManager.getInstance().getCommand(sourceObjectId);
+	}
+
+	private CmdConnectableRectangle getTargetObject() {
+		return (CmdConnectableRectangle) CommandManager.getInstance().getCommand(targetObjectId);
+	}
+
+	public List<Point> getPoints() {
+		return points;
+	}
+
+	public void setPoints(List<Point> points) {
+		this.points = points;
+	}
+
+	public String getStartText() {
+		return startText;
+	}
+
+	public void setStartText(String startText) {
+		this.startText = startText;
+	}
+
+	public String getEndText() {
+		return endText;
+	}
+
+	public void setEndText(String endText) {
+		this.endText = endText;
+	}
+
+	public String getMiddleText() {
+		return middleText;
+	}
+
+	public void setMiddleText(String middleText) {
+		this.middleText = middleText;
+	}
+
+	public String getSourceObjectId() {
+		return sourceObjectId;
+	}
+
+	public void setSourceObjectId(String sourceObjectId) {
+		this.sourceObjectId = sourceObjectId;
+	}
+
+	public String getTargetObjectId() {
+		return targetObjectId;
+	}
+
+	public void setTargetObjectId(String targetObjectId) {
+		this.targetObjectId = targetObjectId;
+	}
+
+	@Override
+	public void deserialise(Element elm) {
+		super.deserialise(elm);
+		// deducePoints();
+		getSourceObject().addPropertyChangeListener(this);
+		getTargetObject().addPropertyChangeListener(this);
+		CommandManager.getInstance().getHistory().addListener(this);
+	}
+
+	@Override
+	public void deserialise(InputStreamReader in) throws Exception {
+		// TODO Auto-generated method stub
+		super.deserialise(in);
+		// deducePoints();
+		getSourceObject().addPropertyChangeListener(this);
+		getTargetObject().addPropertyChangeListener(this);
+		CommandManager.getInstance().getHistory().addListener(this);
+	}
+
+	@Override
+	public void onRemoved(Object o) {
+		if (((AbstractCommand) o).getId().equals(getSourceObjectId()) || ((AbstractCommand) o).getId().equals(getTargetObjectId())) {
+			CommandManager.getInstance().getHistory().remove(this);
+		}
+
+	}
+
+	@Override
+	public void onInserted(Object o) {
+		// TODO Auto-generated method stub
+
+	}
+}

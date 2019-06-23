@@ -1,0 +1,104 @@
+package com.samisari.common.util.bean;
+
+import java.awt.Rectangle;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+
+import net.n3.nanoxml.XMLElement;
+import net.n3.nanoxml.XMLWriter;
+
+public class ListHandler {
+
+	public static String toStringXDOM() {
+		DocumentBuilder db;
+		try {
+			db = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+
+			Document doc = db.newDocument();
+			Element root = doc.getDocumentElement();
+			//		Element item = new DefaultElement();
+			//		root.appendChild();
+		} catch (ParserConfigurationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
+	}
+	public static String toString(List<?> list) {
+		try {
+			XMLElement element = new XMLElement("list");
+			for (Object item:list) {
+				XMLElement itemElement = new XMLElement("item");
+				itemElement.setContent(BeanUtils.value2String(item));
+				element.addChild(itemElement);
+			}
+			StringWriter sw = new StringWriter();
+			XMLWriter xw = new XMLWriter(sw);
+			xw.write(element);
+			return sw.toString();
+		} catch (Exception e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		return null;
+	}
+
+	public static String toStringX(List<?> list) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("<list>");
+		for (Object item : list) {
+			sb.append("<item>");
+			sb.append(BeanUtils.value2String(item));
+			sb.append("</item>");
+		}
+		sb.append("</list>");
+
+		return sb.toString();
+	}
+
+	public static List<Object> toObject(String text) {
+		List<Object> list = new ArrayList<Object>();
+		text = "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>" + text;
+		try {
+			DocumentBuilder db = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+			Document doc = db.parse(new InputSource(new StringReader(text)));
+			Element root = doc.getDocumentElement();
+			NodeList items = root.getElementsByTagName("item");
+			for (int i = 0; i < items.getLength(); i++) {
+				Node item = items.item(i);
+				//System.out.println(item.getTextContent());
+				list.add(BeanUtils.parse(item.getTextContent()));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return list;
+	}
+
+	public static void main(String[] args) {
+		List<Object> list = new ArrayList<>();
+		list.add(new Rectangle(0, 0, 10, 10));
+		list.add(new Rectangle(50, 0, 10, 10));
+		list.add(new Rectangle(0, 50, 10, 10));
+		list.add(new Rectangle(50, 50, 10, 10));
+		list.add("<blabla>");
+		String text = toString(list);
+		System.out.println(text);
+		List<Object> deserialisedList = toObject(text);
+		for (Object o : deserialisedList) {
+			System.out.println(o.toString());
+		}
+	}
+}

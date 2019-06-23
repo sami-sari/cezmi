@@ -1,0 +1,5 @@
+package com.samisari.cezmi.core;
+public enum Operation {
+	NONE, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, TOP, BOTTOM, LEFT, RIGHT, MOVE, CONTEXT_MENU, MOVE_CONNECTOR_EDGE
+}
+

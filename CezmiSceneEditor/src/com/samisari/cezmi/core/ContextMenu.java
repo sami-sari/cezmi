@@ -1,0 +1,39 @@
+package com.samisari.cezmi.core;
+
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.Point;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+import javax.swing.JButton;
+import javax.swing.JDialog;
+
+public class ContextMenu extends JDialog {
+	private static final long	serialVersionUID	= 1L;
+
+	public ContextMenu(AbstractCommand command) {
+		setLayout(new GridBagLayout());
+		setUndecorated(true);
+		Point consolePosition = ConsolePropertyManager.getDefaultInstance().getConsolePanel().getLocationOnScreen();
+		Point menuPosition = new Point(consolePosition.x + command.getX(), consolePosition.y + command.getY());
+		setLocation(menuPosition);
+		int gridy = 0;
+		for (ContextMenuItem menuItem : command.getContextMenuItems()) {
+			JButton button = new JButton(menuItem.getText());
+			final ContextMenuItem item = menuItem;
+			button.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					ContextMenuAction action = item.getAction();
+					action.run();
+					ContextMenu.this.setVisible(false);
+				}
+			});
+			add(button, new GridBagConstraints(0, gridy, 1, 1, 0, 1, GridBagConstraints.WEST, GridBagConstraints.BOTH,
+					new Insets(0, 0, 0, 0), 2, 2));
+			gridy++;
+		}
+	}
+}

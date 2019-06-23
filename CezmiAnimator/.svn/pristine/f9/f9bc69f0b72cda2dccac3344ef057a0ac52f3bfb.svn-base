@@ -1,0 +1,251 @@
+package com.samisari.cezmi.animator.gui;
+
+import java.awt.BorderLayout;
+import java.awt.Rectangle;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.Timer;
+
+import com.samisari.cezmi.animator.core.Animation;
+import com.samisari.cezmi.animator.core.Tick;
+import com.samisari.cezmi.animator.sound.CmdSound;
+import com.samisari.cezmi.animator.sound.SoundClipBoundary;
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+import com.samisari.cezmi.core.History;
+import com.samisari.gui.dialog.PropertiesDialog;
+
+public class Player extends JFrame implements TimeLineListener {
+	private static final long		serialVersionUID	= 2920862071256946809L;
+	private Animation				animation;
+	private Timer					ticker;
+	private PlayerPanel				console;
+	private TimeLine				timeline;
+	private volatile boolean		playing				= false;
+	private volatile List<History>	copyBuffer;
+
+	public Player() {
+		super();
+		animation = new Animation(500);
+		setAnimation(animation);
+		setLayout(new BorderLayout());
+		setUndecorated(true);
+		console = new PlayerPanel(this);
+		animation.addListener(console);
+		add(console, BorderLayout.CENTER);
+		timeline = new TimeLine(500);
+		timeline.addListener(this);
+		add(timeline, BorderLayout.NORTH);
+	}
+
+	public void start() {
+		setVisible(true);
+		pack();
+	}
+
+	public void end() {
+		setVisible(false);
+	}
+
+	public void play() {
+		int start = getAnimation().getSelectionStart();
+		int end = getAnimation().getSelectionEnd();
+		int current = getAnimation().getCurrentFrameNumber();
+		if (end > start && current >= end - 1)
+			getTimeline().setFrame(start);
+
+		setPlaying(true);
+		int delay = 1000 / getAnimation().getFramesPerSecond();
+		ticker = new Timer(delay, new Tick(this));
+		ticker.setInitialDelay(100);
+		ticker.setCoalesce(false);
+		ticker.start();
+		// setPlaying(false);
+	}
+
+	public void stop() {
+	}
+
+	public Animation getAnimation() {
+		return animation;
+	}
+
+	public void setAnimation(Animation animation) {
+		this.animation = animation;
+	}
+
+	public Timer getTicker() {
+		return ticker;
+	}
+
+	public void setTicker(Timer ticker) {
+		this.ticker = ticker;
+	}
+
+	public PlayerPanel getConsole() {
+		return console;
+	}
+
+	public void setConsole(PlayerPanel console) {
+		this.console = console;
+	}
+
+	@Override
+	public void onTimelineEvent(TimeLineEvent event) {
+		switch (event.getEventType()) {
+		case TimeLineEvent.ACTION_PLAY:
+			play();
+			break;
+		case TimeLineEvent.ACTION_PAUSE:
+			stop();
+			break;
+		case TimeLineEvent.FRAME_CHANGED:
+			getAnimation().setCurrentFrameNumber(event.getArguments()[0]);
+			break;
+		case TimeLineEvent.SELECTION_CHANGED:
+			getAnimation().setSelectionStart(event.getArguments()[0]);
+			getAnimation().setSelectionEnd(event.getArguments()[1]);
+			setPlaying(false);
+			break;
+		case TimeLineEvent.ACTION_COPY: {
+			int start = getAnimation().getSelectionStart();
+			int end = getAnimation().getSelectionEnd();
+			copyBuffer = new ArrayList<History>();
+			for (int i = start; i <= end; i++) {
+				copyBuffer.add((History) getAnimation().getViews().get(i).clone());
+			}
+		}
+			break;
+		case TimeLineEvent.ACTION_PASTE: {
+			if (copyBuffer != null && copyBuffer.size() > 0)
+				for (int i = getAnimation().getSelectionStart(); i <= getAnimation().getSelectionEnd();) {
+					getAnimation().setCurrentFrameNumber(i);
+					for (History h : copyBuffer) {
+						getAnimation().getViews().add(getAnimation().getCurrentFrameNumber(), (History) h.clone());
+						i++;
+					}
+				}
+		}
+			break;
+		case TimeLineEvent.ACTION_EXTRAPOLATE: {
+			int selectionStart = getAnimation().getSelectionStart();
+			int current = getAnimation().getCurrentFrameNumber();
+			History view = getAnimation().getCurrentView();
+			History startView = getAnimation().getViews().get(selectionStart);
+			List<AbstractCommand> selectedList = view.getSelectedCommands();
+			for (AbstractCommand c : selectedList) {
+				String id = c.getId();
+				AbstractCommand startCommand = startView.getCommand(id);
+				int x0 = startCommand.getX();
+				int y0 = startCommand.getY();
+				int width0 = startCommand.getWidth();
+				int height0 = startCommand.getHeight();
+				double dx = ((double) c.getX()) - (double) x0;
+				double dy = ((double) c.getY()) - (double) y0;
+				double dWidth = ((double) c.getWidth()) - (double) width0;
+				double dHeight = ((double) c.getHeight()) - (double) height0;
+				for (int i = selectionStart + 1; i < current; i++) {
+					double factor = ((double) (i - selectionStart)) / (double) (current - selectionStart);
+					AbstractCommand cmd = getAnimation().getViews().get(i).getCommand(id);
+					cmd.setX(cmd.getX() + (int) (factor * dx));
+					cmd.setY(cmd.getY() + (int) (factor * dy));
+					cmd.setWidth(cmd.getWidth() + (int) (factor * dWidth));
+					cmd.setHeight(cmd.getHeight() + (int) (factor * dHeight));
+
+				}
+				console.repaint();
+			}
+		}
+			break;
+		case TimeLineEvent.ACTION_SAVE: {
+			try {
+				JFileChooser fc = new JFileChooser();
+				if (fc.showSaveDialog(console) == JFileChooser.APPROVE_OPTION) {
+					getAnimation().save(fc.getSelectedFile().getAbsolutePath());
+				}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+			break;
+		case TimeLineEvent.ACTION_LOAD: {
+			try {
+				JFileChooser fc = new JFileChooser();
+				if (fc.showOpenDialog(console) == JFileChooser.APPROVE_OPTION) {
+					getAnimation().load(fc.getSelectedFile().getAbsolutePath());
+					getAnimation().loadDelta();
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+			break;
+		case TimeLineEvent.ACTION_DELETE:
+			getAnimation().delete();
+			break;
+		case TimeLineEvent.ACTION_SHOW_PROPERTIES: {
+			List<AbstractCommand> selectedList = getAnimation().getCurrentView().getSelectedCommands();
+			for (AbstractCommand c:selectedList) {
+				new PropertiesDialog(c).setVisible(true);
+			}
+		}
+			break;
+		case TimeLineEvent.ACTION_EDIT: {
+			CommandManager.getInstance().setHistory(getAnimation().getCurrentView());
+			ConsolePropertyManager.getInstance().getConsolePanel().grabFocus();
+			ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+		}
+		break;
+		case TimeLineEvent.ACTION_ADD_SOUND: {
+			JFileChooser fc = new JFileChooser();
+			if (JFileChooser.APPROVE_OPTION==fc.showOpenDialog(this)) {
+				File file = fc.getSelectedFile();
+				CmdSound cmd = new CmdSound();
+				cmd.setFilename(file.getAbsolutePath());
+				cmd.setBounds(new Rectangle(0,0,40,40));
+				cmd.run();
+				animation.getCurrentView().add(cmd);
+				SoundClipBoundary scb = new SoundClipBoundary();
+				scb.setSound(cmd);
+				if (animation.getSelectionStart()==-1) {
+					scb.setStartPlayingAt(0);
+				} else {
+					scb.setStartPlayingAt(animation.getSelectionStart());
+				}
+				if (animation.getSelectionEnd()==-1) {
+					scb.setStopPlayingAt(animation.getNumberOfFrames());
+				} else {
+					scb.setStartPlayingAt(animation.getSelectionEnd());
+				}
+				timeline.addListener(scb);
+			}
+			getContentPane().repaint();
+		}
+		break;
+		}
+	}
+
+	public TimeLine getTimeline() {
+		return timeline;
+	}
+
+	public void setTimeline(TimeLine timeline) {
+		this.timeline = timeline;
+	}
+
+	public boolean isPlaying() {
+		return playing;
+	}
+
+	public void setPlaying(boolean playing) {
+		this.playing = playing;
+	}
+
+}

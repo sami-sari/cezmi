@@ -1,0 +1,261 @@
+package com.samisari.cezmi.component;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
+
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JTextArea;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+import com.samisari.cezmi.core.Operation;
+import com.samisari.gui.dialog.JFontChooser;
+
+public class CmdText extends AbstractCommand implements Cloneable, KeyListener {
+	private static final Logger	logger				= Logger.getLogger(CmdText.class);
+	private static final long	serialVersionUID	= 5226672462820897805L;
+	private String				text				= "";
+	private int					cursorPos			= 0;
+	private Font				font;
+	private Color				color;
+
+	protected enum Status {
+		START, TYPING
+	};
+
+	protected Status status = Status.START;
+
+	public String getText() {
+		return text;
+	}
+
+	public void setText(String text) {
+		this.text = text;
+		setTextBounds();
+	}
+
+	public Font getFont() {
+		return font;
+	}
+
+	public void setFont(Font font) {
+		this.font = font;
+		setTextBounds();
+	}
+
+	public Color getColor() {
+		return color;
+	}
+
+	public void setColor(Color color) {
+		this.color = color;
+	}
+
+	@Override
+	public void keyTyped(KeyEvent e) {
+		// TODO Auto-generated method stub
+		if (e.getKeyChar() == KeyEvent.CHAR_UNDEFINED) {
+			logger.debug("UNDEFINED Character");
+			return;
+		}
+		logger.debug("key typed " + e.getKeyChar());
+		if (e.getKeyChar() == '\b') {
+			logger.debug("BACKSPACE " + cursorPos);
+			cursorPos--;
+			setText(text.substring(0, cursorPos) + text.substring(cursorPos + 1, text.length()));
+			logger.debug("BACKSPACE 2 " + text);
+		} else if (e.getKeyChar() == '\n') {
+			logger.debug("ENTER " + cursorPos);
+			mouseClicked(0, 0);
+			logger.debug("ENTER 2 " + text);
+		} else {
+			logger.debug("INSERT " + e.getKeyChar());
+			setText(text.substring(0, cursorPos) + e.getKeyChar() + text.substring(cursorPos));
+			cursorPos++;
+		}
+		ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+	}
+
+	@Override
+	public void keyPressed(KeyEvent e) {
+	}
+
+	@Override
+	public void keyReleased(KeyEvent e) {
+		if (e.getExtendedKeyCode() == KeyEvent.VK_LEFT && cursorPos > 0) {
+			logger.debug("Key Released LEFT");
+			cursorPos--;
+		} else if (e.getExtendedKeyCode() == KeyEvent.VK_RIGHT && cursorPos < text.length()) {
+			logger.debug("Key Released RIGHT");
+			cursorPos++;
+		} else if (e.getExtendedKeyCode() == KeyEvent.VK_DELETE) {
+			logger.debug("DELETE");
+			setText(text.substring(0, text.length() - 1));
+		} else {
+			// Ignore
+			return;
+		}
+		ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+	}
+
+	public void showDialog() {
+		final JDialog dialog = new JDialog();
+		final JTextArea textArea = new JTextArea(text);
+		final JFontChooser fontChooser = new JFontChooser();
+		JButton fontButton = new JButton("");
+		fontButton.setBounds(10, 10, 25, 25);
+		fontButton.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				fontChooser.showDialog(dialog);
+				Font font = fontChooser.getSelectedFont();
+				if (font != null)
+					CmdText.this.font = font;
+			}
+
+		});
+		dialog.add(fontButton);
+		dialog.setLayout(null);
+		textArea.setBounds(10, 40, 200, 100);
+		dialog.add(textArea);
+		dialog.setModal(true);
+		dialog.setSize(220, 200);
+		dialog.add(textArea);
+		dialog.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		dialog.addWindowListener(new WindowListener() {
+
+			@Override
+			public void windowOpened(WindowEvent arg0) {
+			}
+
+			@Override
+			public void windowIconified(WindowEvent arg0) {
+			}
+
+			@Override
+			public void windowDeiconified(WindowEvent arg0) {
+			}
+
+			@Override
+			public void windowDeactivated(WindowEvent arg0) {
+			}
+
+			@Override
+			public void windowClosing(WindowEvent arg0) {
+				setText(textArea.getText());
+			}
+
+			@Override
+			public void windowClosed(WindowEvent arg0) {
+			}
+
+			@Override
+			public void windowActivated(WindowEvent arg0) {
+			}
+		});
+		dialog.setVisible(true);
+	}
+
+	@Override
+	public void mouseClicked(int x, int y) {
+		switch (status) {
+		case START: {
+			int h=getTextBounds("f").height;
+			setBounds(x, y - h, 0, h);
+			setColor(ConsolePropertyManager.getInstance().getForegroundColor());
+			ConsolePropertyManager.getInstance().getConsolePanel().setFocusable(true);
+			ConsolePropertyManager.getInstance().getConsolePanel().addKeyListener(this);
+			ConsolePropertyManager.getInstance().getConsolePanel().grabFocus();
+
+			status = Status.TYPING;
+		}
+			break;
+		case TYPING: {
+			Graphics graphics = ConsolePropertyManager.getInstance().getConsolePanel().getGraphics();
+			if (font == null) {
+				font = graphics.getFont();
+			}
+			CommandManager.getInstance().getHistory().add(this);
+			CommandManager.getInstance().endCommand();
+			ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+			ConsolePropertyManager.getInstance().getConsolePanel().removeKeyListener(this);
+			status = Status.START;
+		}
+		}
+
+	}
+
+	private void setTextBounds() {
+		setBounds(getTextBounds(text));
+	}
+
+	private Rectangle getTextBounds(String text) {
+		Graphics graphics = ConsolePropertyManager.getInstance().getConsolePanel().getGraphics();
+		FontMetrics metrics = graphics.getFontMetrics(font == null ? graphics.getFont() : font);
+		int hgt = metrics.getHeight();
+		int wdt = metrics.stringWidth(text);
+		Rectangle bounds = new Rectangle(getX(), getY() , wdt, hgt);
+		return bounds;
+	}
+
+	@Override
+	public void paint(Graphics g) {
+		super.beforePaint(g);
+		Color tmpColor = g.getColor();
+		Font tmpFont = g.getFont();
+		try {
+			g.setColor(getColor() == null ? ConsolePropertyManager.getInstance().getForegroundColor() : getColor());
+			g.setFont(font);
+			if (status == Status.START) {
+				logger.debug("Painting " + text + " (" + getX() + "," + getY());
+				Rectangle b = getTextBounds(text.substring(0, cursorPos));
+				g.drawString(text, getX(), getY()+b.height);
+			} else {
+				Rectangle b = getTextBounds(text.substring(0, cursorPos));
+				g.drawLine(b.x + b.width, b.y, b.x + b.width, b.y + b.height);
+				b = getTextBounds(text);
+				g.drawString(text, getX(), getY()+b.height);
+				g.drawRect(b.x, b.y, b.width, b.height);
+
+			}
+		} finally {
+			g.setFont(tmpFont);
+			g.setColor(tmpColor);
+			super.afterPaint(g);
+		}
+	}
+
+	@Override
+	protected void paintSelection(Graphics g) {
+		if (getBounds() != null) {
+			Color tmp = ConsolePropertyManager.getInstance().getForegroundColor();
+			g.setColor(SELECTED_COLOR);
+			g.drawRect(getBounds().x + getBounds().width / 2 - SELECTION_MARKER_SIZE, getBounds().y + getBounds().height / 2 - SELECTION_MARKER_SIZE,
+					SELECTION_MARKER_SIZE * 2, SELECTION_MARKER_SIZE * 2);
+			g.setColor(tmp);
+		}
+	};
+
+	@Override
+	public void move(Operation operation, int dx, int dy) {
+		// Ignore resizing operations
+		if (operation == Operation.MOVE)
+			super.move(operation, dx, dy);
+	}
+
+}

@@ -1,0 +1,311 @@
+package com.samisari.cezmi.core;
+
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.input.KeyInputListener;
+
+public class ConsoleMouseListener implements MouseListener, MouseMotionListener, KeyInputListener {
+	private static final Logger logger = Logger.getLogger(ConsoleMouseListener.class);
+	private Operation operation = Operation.NONE;
+	private List<AbstractCommand> selectedCommands = new ArrayList<AbstractCommand>();
+	private Point click;
+	private AbstractCommand pivotCommand;
+	private String instance;
+	private int x;
+	private int y;
+
+	public ConsoleMouseListener(String key) {
+		super();
+		this.instance = key;
+	}
+
+	public ConsoleMouseListener() {
+		this("DEFAULT");
+	}
+
+	@Override
+	public void mouseClicked(MouseEvent e) {
+		logger.debug(e);
+		double zx = ConsolePropertyManager.getInstance(instance).getScaleFactor();
+		Point offset = ConsolePropertyManager.getInstance(instance).getOffset();
+		int x = (int) (e.getX() / zx) + offset.x;
+		int y = (int) (e.getY() / zx) + offset.y;
+		click = new Point(x, y);
+		AbstractCommand clickedCmd = null;
+
+		// Bu kod haddini aşıyor
+		for (KeyListener l : ConsolePropertyManager.getInstance().getConsolePanel().getKeyListeners()) {
+			ConsolePropertyManager.getInstance().getConsolePanel().removeKeyListener(l);
+		}
+		ConsolePropertyManager.getInstance().getConsolePanel().setFocusable(true);
+		ConsolePropertyManager.getInstance().getConsolePanel().addKeyListener(this);
+		ConsolePropertyManager.getInstance().getConsolePanel().grabFocus();
+
+		AbstractCommand command = CommandManager.getInstance(instance).getCommand();
+		if (command != null) {
+
+			command.mouseClicked(x, y);
+			logger.debug("Command is " + command.getClass().getSimpleName());
+		} else {
+			selectedCommands = CommandManager.getInstance(instance).getSelectedCommands();
+			clickedCmd = CommandManager.getInstance(instance).getCommandListInRange(x, y,
+					ConsolePropertyManager.SELECTION_RADIUS);
+			if (operation == Operation.NONE) {
+				if (clickedCmd != null) {
+					// Clicked on a command and selected command list is not
+					// empty check for operations
+					for (AbstractCommand cmd : selectedCommands) {
+						Rectangle bounds = cmd.getBounds();
+						if (cmd.isSelected() && bounds != null) {
+							Operation tmp = cmd.getOperation(click);
+							logger.debug(tmp);
+							if (tmp != null) {
+								pivotCommand = cmd;
+								operation = tmp;
+							}
+						}
+					}
+				}
+			} else {
+				operation = Operation.NONE;
+
+			}
+			if (operation == Operation.NONE && clickedCmd != null) {
+				selectObjectAt(x, y);
+			} else {
+				// Clear selection if click is outside of any selected object
+				// bounds
+				if (clickedCmd == null) {
+					if (selectedCommands != null && selectedCommands.size() > 0) {
+						for (AbstractCommand cmd : selectedCommands) {
+							cmd.setSelected(false);
+						}
+						selectedCommands.clear();
+						pivotCommand = null;
+						click = null;
+						operation = Operation.NONE;
+					}
+				}
+			}
+		}
+		ConsolePropertyManager.getInstance(instance).getConsolePanel().repaint();
+		if (clickedCmd != null && operation == Operation.CONTEXT_MENU) {
+			clickedCmd.openContextMenu();
+			operation = Operation.NONE;
+		}
+
+	}
+
+	private void selectObjectAt(int x, int y) {
+		AbstractCommand so = CommandManager.getInstance().getCommandListInRange(x, y,
+				ConsolePropertyManager.SELECTION_RADIUS);
+		if (so != null) {
+			if (so.isSelected())
+				so.setSelected(false);
+			else
+				so.setSelected(true);
+			CommandManager.getInstance().fireCommandSelectionChanged(so);
+		}
+		ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+	}
+
+	@Override
+	public void mouseEntered(MouseEvent e) {
+	}
+
+	@Override
+	public void mouseExited(MouseEvent e) {
+	}
+
+	@Override
+	public void mousePressed(MouseEvent e) {
+		AbstractCommand cmd = CommandManager.getInstance(instance).getCommand();
+		if (cmd != null)
+			CommandManager.getInstance(instance).getCommand().mousePressed(e.getX(), e.getY());
+	}
+
+	@Override
+	public void mouseReleased(MouseEvent e) {
+		logger.debug("MOUSE RELEASED");
+		AbstractCommand cmd = CommandManager.getInstance(instance).getCommand();
+		if (operation == Operation.CONTEXT_MENU) {
+			if (cmd != null)
+				cmd.openContextMenu();
+			operation = Operation.NONE;
+		} else if (cmd != null)
+			cmd.mouseReleased(e.getX(), e.getY());
+	}
+
+	@Override
+	public void mouseDragged(MouseEvent mouseEvent) {
+		AbstractCommand cmd = CommandManager.getInstance(instance).getCommand();
+		if (cmd != null)
+			cmd.mouseDragged(mouseEvent);
+	}
+
+	@Override
+	public void mouseMoved(MouseEvent evt) {
+		logger.debug(evt);
+		AbstractCommand command = CommandManager.getInstance(instance).getCommand();
+		if (command != null) {
+			double zx = ConsolePropertyManager.getInstance(instance).getScaleFactor();
+			Point offset = ConsolePropertyManager.getInstance(instance).getOffset();
+			x = (int) (evt.getX() / zx) + offset.x;
+			y = (int) (evt.getY() / zx) + offset.y;
+
+			logger.debug("mouseMoved: " + x + ", " + y);
+			command.mouseMoved(x, y);
+		}
+		if (operation != null && !operation.equals(Operation.NONE) && selectedCommands != null
+				&& selectedCommands.size() > 0) {
+			double zx = ConsolePropertyManager.getInstance(instance).getScaleFactor();
+			Point offset = ConsolePropertyManager.getInstance(instance).getOffset();
+			x = (int) (evt.getX() / zx) + offset.x;
+			y = (int) (evt.getY() / zx) + offset.y;
+
+			int dx = 0, dy = 0;
+
+			switch (operation) {
+			case LEFT:
+			case TOP_LEFT:
+			case BOTTOM_LEFT:
+				dx = x - pivotCommand.getBounds().x;
+				break;
+			case MOVE:
+				dx = x - (pivotCommand.getBounds().x + (pivotCommand.getBounds().width / 2));
+				break;
+			case RIGHT:
+			case TOP_RIGHT:
+			case BOTTOM_RIGHT:
+				dx = x - (pivotCommand.getBounds().x + (pivotCommand.getBounds().width));
+				break;
+			default:
+			}
+			switch (operation) {
+			case TOP:
+			case TOP_LEFT:
+			case TOP_RIGHT:
+				dy = y - pivotCommand.getBounds().y;
+				break;
+			case MOVE:
+				dy = y - (pivotCommand.getBounds().y + (pivotCommand.getBounds().height / 2));
+				break;
+			case BOTTOM:
+			case BOTTOM_LEFT:
+			case BOTTOM_RIGHT:
+				dy = y - (pivotCommand.getBounds().y + (pivotCommand.getBounds().height));
+				break;
+			default:
+			}
+			if (operation.equals(Operation.MOVE_CONNECTOR_EDGE)) {
+				pivotCommand.move(operation, x, y);
+			} else
+				for (AbstractCommand cmd : selectedCommands) {
+					logger.debug("MOVING x:" + cmd.getBounds().x);
+					cmd.move(operation, dx, dy);
+				}
+			ConsolePropertyManager.getInstance(instance).getConsolePanel().repaint();
+		}
+
+	}
+
+	@Override
+	public void keyUpPressed() {
+		AbstractCommand command = CommandManager.getInstance().getCommand();
+		if (command != null) {
+			y--;
+			command.mouseMoved(x, y);
+		} else {
+			Point offset = ConsolePropertyManager.getInstance(instance).getOffset();
+			x -= offset.x;
+			y -= offset.y + 1;
+			mouseMoved(new MouseEvent(ConsolePropertyManager.getInstance().getConsolePanel(), MouseEvent.MOUSE_MOVED,
+					System.currentTimeMillis(), 0, x, y, 0, false));
+		}
+
+	}
+
+	@Override
+	public void keyCommitPressed() {
+		AbstractCommand command = CommandManager.getInstance().getCommand();
+		if (command != null) {
+			y--;
+			command.mouseMoved(x, y);
+		} else {
+			Point offset = ConsolePropertyManager.getInstance(instance).getOffset();
+			x -= offset.x;
+			y -= offset.y;
+			MouseEvent evt = new MouseEvent(ConsolePropertyManager.getInstance().getConsolePanel(),
+					MouseEvent.MOUSE_CLICKED, System.currentTimeMillis(), 0, x, y, 0, false);
+			mousePressed(evt);
+			mouseReleased(evt);
+			mouseClicked(evt);
+		}
+
+	}
+
+	@Override
+	public void keyDownPressed() {
+		AbstractCommand command = CommandManager.getInstance().getCommand();
+		if (command != null) {
+			y++;
+			command.mouseMoved(x, y);
+		} else {
+			Point offset = ConsolePropertyManager.getInstance(instance).getOffset();
+			x -= offset.x;
+			y -= offset.y - 1;
+			mouseMoved(new MouseEvent(ConsolePropertyManager.getInstance().getConsolePanel(), MouseEvent.MOUSE_MOVED,
+					System.currentTimeMillis(), 0, x, y, 0, false));
+		}
+
+	}
+
+	@Override
+	public void keyLeftPressed() {
+		AbstractCommand command = CommandManager.getInstance().getCommand();
+		if (command != null) {
+			x--;
+			command.mouseMoved(x, y);
+		} else {
+			Point offset = ConsolePropertyManager.getInstance(instance).getOffset();
+			x -= offset.x + 1;
+			y -= offset.y;
+			mouseMoved(new MouseEvent(ConsolePropertyManager.getInstance().getConsolePanel(), MouseEvent.MOUSE_MOVED,
+					System.currentTimeMillis(), 0, x, y, 0, false));
+		}
+
+	}
+
+	@Override
+	public void keyRightPressed() {
+		AbstractCommand command = CommandManager.getInstance().getCommand();
+		if (command != null) {
+			x++;
+			command.mouseMoved(x, y);
+		} else {
+			Point offset = ConsolePropertyManager.getInstance(instance).getOffset();
+			x -= offset.x - 1;
+			y -= offset.y;
+			mouseMoved(new MouseEvent(ConsolePropertyManager.getInstance().getConsolePanel(), MouseEvent.MOUSE_MOVED,
+					System.currentTimeMillis(), 0, x, y, 0, false));
+		}
+
+	}
+
+	@Override
+	public void keyTyped(KeyEvent e) {
+		// Do nothing
+
+	}
+
+}

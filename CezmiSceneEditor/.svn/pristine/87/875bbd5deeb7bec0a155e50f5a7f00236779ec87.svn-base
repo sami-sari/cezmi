@@ -1,0 +1,124 @@
+package com.samisari.cezmi.core;
+
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.geom.AffineTransform;
+import java.util.HashMap;
+
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+
+public class ConsolePropertyManager {
+	public static int										SELECTION_RADIUS	= 5;
+	private static HashMap<String, ConsolePropertyManager>	instance;
+	private Color											foregroundColor		= Color.BLACK;
+	private JPanel											consolePanel;
+	private boolean											showGrid;
+	private double											scaleFactor			= 1.00;
+	private Point											offset				= new Point(-5, -5);
+	private JFrame											applicationFrame;
+
+	private ConsolePropertyManager() {
+		super();
+	}
+
+	public static ConsolePropertyManager getInstance() {
+		return getInstance("DEFAULT");
+	}
+
+	public static ConsolePropertyManager getInstance(String key) {
+		if (instance == null)
+			instance = new HashMap<String, ConsolePropertyManager>();
+		if (instance.get(key) == null)
+			instance.put(key, new ConsolePropertyManager());
+
+		return instance.get(key);
+
+	}
+
+	public Color getForegroundColor() {
+		return foregroundColor;
+	}
+
+	public void setForegroundColor(Color foregroundColor) {
+		this.foregroundColor = foregroundColor;
+	}
+
+	public void setConsolePanel(Java2DFPanel consolePanel) {
+		this.consolePanel = consolePanel;
+	}
+
+	public JPanel getConsolePanel() {
+		return consolePanel;
+	}
+
+	public double getScaleFactor() {
+		// int i = 0;
+		// float scaleFactor = 1;
+		// if (CommandManager.getInstance().getHistory().size() > 0) {
+		// AbstractCommand nextCommand =
+		// CommandManager.getInstance().getHistory().get(i);
+		// while (nextCommand instanceof CmdZoom) {
+		// scaleFactor *= 1.00 / ((CmdZoom) nextCommand).getZoomFactor();
+		// i++;
+		// nextCommand = CommandManager.getInstance().getHistory().get(i);
+		// }
+		// }
+		return scaleFactor;
+	}
+
+	public Point getOffset() {
+		// int i = 0;
+		// Point offset = new Point(0,0);
+		// if (CommandManager.getInstance().getHistory().size() > 0) {
+		// AbstractCommand nextCommand =
+		// CommandManager.getInstance().getHistory().get(i);
+		// while (nextCommand instanceof CmdNavigator) {
+		// offset = ((CmdNavigator) nextCommand).getOffset();
+		// i++;
+		// nextCommand = CommandManager.getInstance().getHistory().get(i);
+		// }
+		// }
+		return offset;
+	}
+
+	public void setScaleFactor(double scaleFactor) {
+		this.scaleFactor = scaleFactor;
+	}
+
+	public void setOffset(Point offset) {
+		this.offset = offset;
+	}
+
+	public void paint(Graphics g) {
+		if (((int) (getScaleFactor() * 1000)) != 1000) {
+			Graphics2D g2d = (Graphics2D) g;
+			AffineTransform scale = AffineTransform.getScaleInstance(this.getScaleFactor(), this.getScaleFactor());
+			g2d.transform(scale);
+		}
+
+		if (getOffset().x != 0 || getOffset().y != 0) {
+			Graphics2D g2d = (Graphics2D) g;
+			AffineTransform translate = AffineTransform.getTranslateInstance(-offset.x, -offset.y);
+			g2d.transform(translate);
+		}
+	}
+
+	public void setApplicationFrame(JFrame frame) {
+		applicationFrame = frame;
+	}
+
+	public JFrame getApplicationFrame() {
+		return applicationFrame;
+	}
+
+	public boolean isShowGrid() {
+		return showGrid;
+	}
+
+	public void setShowGrid(boolean showGrid) {
+		this.showGrid = showGrid;
+	}
+}

@@ -1,0 +1,77 @@
+package com.samisari.cezmi.component;
+
+import java.awt.Graphics;
+import java.awt.image.BufferedImage;
+import java.io.File;
+
+import javax.imageio.ImageIO;
+import javax.swing.JFileChooser;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.core.ConsolePropertyManager;
+import com.samisari.cezmi.core.Status;
+import com.samisari.cezmi.util.FileChooserHistory;
+
+public class CmdImage extends CmdConnectableRectangle {
+	private static final long	serialVersionUID	= 1L;
+	private static final Logger	LOGGER				= Logger.getLogger(CmdImage.class);
+	private BufferedImage		image;
+
+	@Override
+	public void run() {
+		super.run();
+		JFileChooser fileChooser = new JFileChooser();
+		fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+		String lastPath = FileChooserHistory.get(this.getClass().getName());
+		if (lastPath != null)
+			fileChooser.setCurrentDirectory(new File(lastPath));
+		int result = fileChooser.showOpenDialog(null);
+		try {
+			if (result != JFileChooser.CANCEL_OPTION) {
+				File fileName = fileChooser.getSelectedFile();
+
+				FileChooserHistory.put(this.getClass().getName(), fileName.getParent());
+				image = ImageIO.read(fileName);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+	}
+
+	@Override
+	public void mouseClicked(int x, int y) {
+		super.mouseClicked(x, y);
+		int width = image.getWidth(null);
+		int height = image.getHeight(null);
+		LOGGER.debug("width:" + width + "height" + height);
+		super.mouseClicked(x + width, y + height);
+		setSelected(true);
+	}
+
+	@Override
+	public void paint(Graphics g) {
+		super.beforePaint(g);
+
+		if (Status.DRAGGING != getCurrentStatus()) {
+			if (image != null && getBounds() != null) {
+				LOGGER.debug("Painting");
+				g.drawImage(image, getX(), getY(), getWidth(), getHeight(), null);
+			} else {
+				LOGGER.debug("Not Painting");
+			}
+		}
+
+		super.afterPaint(g);
+	}
+
+	public BufferedImage getImage() {
+		return image;
+	}
+
+	public void setImage(BufferedImage image) {
+		this.image = image;
+	}
+
+}

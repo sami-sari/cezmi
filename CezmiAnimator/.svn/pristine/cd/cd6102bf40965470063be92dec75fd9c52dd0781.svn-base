@@ -1,0 +1,16 @@
+package com.samisari.cezmi.animator.gui;
+
+import javax.swing.JPanel;
+
+import com.samisari.cezmi.animator.core.Animation;
+
+public class AnimationEditor extends JPanel{
+	private static final long serialVersionUID = -6302471904083677681L;
+	TimeLine timeLine;
+	Animation animation;
+	
+	public AnimationEditor(Animation animation) {
+		
+		
+	}
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CommandInterfaces"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/SamiSariCommon"/>
+	<classpathentry kind="lib" path="/Libraries/ssh/jsch-0.1.50.jar" sourcepath="C:/Users/sam/Downloads/jsch-0.1.53.zip"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiCore"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiBasicComponents"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiSceneEditor"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/jcterm"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

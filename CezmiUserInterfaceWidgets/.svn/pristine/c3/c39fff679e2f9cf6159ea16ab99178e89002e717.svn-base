@@ -1,0 +1,60 @@
+package com.samisari.gui.dialog;
+
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+import javax.swing.JButton;
+import javax.swing.JDialog;
+import javax.swing.JList;
+import javax.swing.JTextField;
+
+import com.samisari.cezmi.core.ConsolePropertyManager;
+
+public class FilterDialog extends JDialog {
+	private static final long serialVersionUID = 4281363222997387646L;
+	private static final int	WIDTH	= 400;
+	private static final int	HEIGHT	= 300;
+
+	private JButton				btnOk;
+//	private JButton				btnAddOr;
+//	private JButton				btnAddAnd;
+	private JList<String>		lstFilters;
+	private JTextField			txtFilterName;
+	private JTextField			txtFilterExpression;
+
+	public FilterDialog() {
+		super();
+		setLayout(null);
+		Rectangle parentBounds = ConsolePropertyManager.getInstance().getApplicationFrame().getBounds();
+		int centerX = parentBounds.x + parentBounds.width / 2;
+		int centerY = parentBounds.y + parentBounds.height / 2;
+
+		setBounds(centerX - WIDTH / 2, centerY - HEIGHT / 2, WIDTH, HEIGHT);
+		
+		lstFilters = new JList<String>(new String[] {"name='FRAME-\\d+'"});
+		lstFilters.setBounds(10,10,WIDTH - 220, HEIGHT - 70);
+		add(lstFilters);
+
+		txtFilterName = new JTextField("Filtre");
+		txtFilterName.setBounds(WIDTH-230 , 10, WIDTH - 220, 25);
+		add(txtFilterName);
+		
+		txtFilterExpression = new JTextField("Expression");
+		txtFilterExpression.setBounds(WIDTH-230 , 45, WIDTH - 220, 25);
+		add(txtFilterExpression);
+
+		
+		btnOk = new JButton("Kaydet");
+		btnOk.setBounds(WIDTH-150,HEIGHT - 35,100, 25);
+		add(btnOk);
+		
+		btnOk.addActionListener(new ActionListener() {
+			
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				FilterDialog.this.setVisible(false);
+			}
+		});
+	}
+}

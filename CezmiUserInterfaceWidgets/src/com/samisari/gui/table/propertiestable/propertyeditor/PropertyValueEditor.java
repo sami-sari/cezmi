@@ -1,0 +1,286 @@
+package com.samisari.gui.table.propertiestable.propertyeditor;
+
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.lang.reflect.Method;
+import java.util.EventObject;
+import java.util.HashMap;
+
+import javax.swing.JButton;
+import javax.swing.JColorChooser;
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.JTextPane;
+import javax.swing.event.CellEditorListener;
+import javax.swing.event.ChangeEvent;
+import javax.swing.table.TableCellEditor;
+
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+import com.samisari.common.util.bean.BeanUtils;
+import com.samisari.gui.dialog.JFontChooser;
+import com.samisari.gui.dialog.RectangleDialog;
+import com.samisari.gui.table.propertiestable.PropertiesTable;
+import com.samisari.gui.table.propertiestable.PropertyTableModel;
+
+public class PropertyValueEditor extends JPanel implements TableCellEditor {
+	private static final long	serialVersionUID	= -5250412086300823567L;
+	private String				text;
+	private JTextField			textField			= new JTextField();
+	private JButton				button				= new JButton("...");
+	private PropertiesTable		propertiesTable;
+
+	@Override
+	public Object getCellEditorValue() {
+		return textField.getText();
+	}
+
+	@Override
+	public boolean isCellEditable(EventObject anEvent) {
+		return true;
+	}
+
+	@Override
+	public boolean shouldSelectCell(EventObject anEvent) {
+		return true;
+	}
+
+	@Override
+	public boolean stopCellEditing() {
+		propertiesTable.getModel().setValueAt(textField.getText(), propertiesTable.getSelectedRow(), 1);
+		for (CellEditorListener listener : getListeners(CellEditorListener.class)) {
+			listener.editingStopped(new ChangeEvent(textField.getText()));
+		}
+		return true;
+	}
+
+	@Override
+	public void cancelCellEditing() {
+		textField.setText(text);
+	}
+
+	@Override
+	public void addCellEditorListener(CellEditorListener l) {
+		listenerList.add(CellEditorListener.class, l);
+	}
+
+	@Override
+	public void removeCellEditorListener(CellEditorListener l) {
+		listenerList.remove(CellEditorListener.class, l);
+	}
+
+	public PropertyValueEditor() {
+		setLayout(new GridBagLayout());
+		textField.setPreferredSize(new Dimension(100, 20));
+		button.setPreferredSize(new Dimension(30, 20));
+		add(textField, new GridBagConstraints(0, 0, 1, 1, 1, 1, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0));
+		add(button, new GridBagConstraints(1, 0, 30, 20, 0, 1, GridBagConstraints.CENTER, GridBagConstraints.VERTICAL, new Insets(0, 0, 0, 0), 0, 0));
+
+	}
+
+	public PropertyValueEditor(PropertiesTable propertiesTable) {
+		this();
+		setPropertiesTable(propertiesTable);
+		button.addActionListener(new PropertyEditDialogButtonActionListener(propertiesTable));
+
+	}
+
+	@Override
+	public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+		if (column == 0) {
+			return null;
+		}
+		textField.setText(value.toString());
+		text = value.toString();
+		return this;
+	}
+
+	public class PropertyEditDialogButtonActionListener implements ActionListener {
+		private JDialog							strDialog		= new JDialog();
+		private JDialog							colorDialog;
+		private JDialog							fontDialog;
+		private JDialog							rectangleDialog	= new JDialog();
+		private JDialog							listDialog		= new JDialog();
+		private JDialog							pointDialog		= new JDialog();
+		private Object							value;
+		private PropertiesTable					propertiesTable;
+
+		private HashMap<Class<?>, Component>	editorDialogs	= new HashMap<>();
+
+		public PropertyEditDialogButtonActionListener() {
+			initStringDialog();
+			initColorDialog();
+			initFontDialog();
+			initListDialog();
+			initRectangleDialog();
+			initPointDialog();
+			try {
+				editorDialogs.put(Class.forName("java.lang.String"), strDialog);
+				editorDialogs.put(Class.forName("java.awt.Font"), fontDialog);
+				editorDialogs.put(Class.forName("java.awt.Color"), colorDialog);
+				editorDialogs.put(Class.forName("java.util.List"), listDialog);
+				editorDialogs.put(Class.forName("java.awt.Rectangle"), rectangleDialog);
+				editorDialogs.put(Class.forName("java.awt.Point"), pointDialog);
+			} catch (ClassNotFoundException e) {
+				JOptionPane.showMessageDialog(null, e.getMessage());
+			}
+
+		}
+
+		public PropertyEditDialogButtonActionListener(PropertiesTable propertiesTable) {
+			this();
+			setPropertiesTable(propertiesTable);
+		}
+
+		private void initStringDialog() {
+			final JTextPane textEdit = new JTextPane();
+			final JScrollPane scroll = new JScrollPane(textEdit);
+			final JButton okButton = new JButton("Tamam");
+			strDialog.addWindowListener(new WindowAdapter() {
+
+				@Override
+				public void windowActivated(WindowEvent e) {
+					textEdit.setText((String) getValue());
+				}
+			});
+
+			okButton.addActionListener(e -> {
+				setValue(textEdit.getText());
+				strDialog.setVisible(false);
+				int row = getPropertiesTable().getSelectedRow();
+				PropertyValueEditor.this.textField.setText((String) getValue());
+				getPropertiesTable().setValueAt(getValue(), row, 1);
+
+			});
+			strDialog.setLayout(null);
+			strDialog.setSize(new Dimension(400, 300));
+			strDialog.setPreferredSize(new Dimension(400, 300));
+
+			scroll.setBounds(10, 10, 300, 260);
+			strDialog.add(scroll);
+			okButton.setBounds(320, 10, 70, 25);
+			strDialog.add(okButton);
+		}
+
+		private void initColorDialog() {
+			final JColorChooser colorChoose = new JColorChooser(Color.WHITE);
+			colorChoose.getSelectionModel().addChangeListener(e -> {
+				Color color = colorChoose.getSelectionModel().getSelectedColor();
+				if (color != null) {
+					setValue(color);
+					int row = getPropertiesTable().getSelectedRow();
+					PropertyValueEditor.this.textField.setText(getValue().toString());
+					getPropertiesTable().setValueAt(getValue(), row, 1);
+					stopCellEditing();
+				}
+			});
+			colorDialog = JColorChooser.createDialog(ConsolePropertyManager.getDefaultInstance().getApplicationFrame(), "Renk Seçimi", true, colorChoose,
+					e -> colorDialog.setVisible(false), e -> colorDialog.setVisible(false));
+		}
+
+		private void initFontDialog() {
+			final JFontChooser fontChooser = new JFontChooser();
+			fontChooser.addPropertyChangeListener(new PropertyChangeListener() {
+				private static final String SELECTED_FONT = "selectedFont";
+
+				@Override
+				public void propertyChange(PropertyChangeEvent evt) {
+					if (SELECTED_FONT.equals(evt.getPropertyName())) {
+						setValue(evt.getNewValue());
+						int row = getPropertiesTable().getSelectedRow();
+						PropertyValueEditor.this.textField.setText(getValue().toString());
+						getPropertiesTable().setValueAt(getValue(), row, 1);
+						stopCellEditing();
+					}
+
+				}
+			});
+			fontDialog = fontChooser.createDialog(ConsolePropertyManager.getDefaultInstance().getApplicationFrame());
+		}
+
+		private void initRectangleDialog() {
+			final RectangleDialog dlg = new RectangleDialog(null);
+			dlg.addPropertyChangeListener(new PropertyChangeListener() {
+				private static final String RECTANGLE = "rectangle";
+
+				@Override
+				public void propertyChange(PropertyChangeEvent evt) {
+					if (RECTANGLE.equals(evt.getPropertyName())) {
+						setValue(evt.getNewValue());
+						int row = getPropertiesTable().getSelectedRow();
+						PropertyValueEditor.this.textField.setText(getValue().toString());
+						getPropertiesTable().setValueAt(getValue(), row, 1);
+						stopCellEditing();
+					}
+
+				}
+			});
+			rectangleDialog = dlg;
+
+		}
+
+		private void initListDialog() {
+
+		}
+
+		private void initPointDialog() {
+
+		}
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			Object source = e.getSource();
+			PropertyValueEditor pve = (PropertyValueEditor) ((Component) source).getParent();
+			PropertiesTable table = (PropertiesTable) pve.getParent();
+			int row = table.getSelectedRow();
+			String propertyName = (String) table.getValueAt(row, 0);
+			AbstractCommand command = ((PropertyTableModel) table.getModel()).getCommand();
+			Method getter = BeanUtils.getGetter(propertyName, command.getClass());
+			String value = (String) pve.getCellEditorValue();
+			Class<?> clazz = getter.getReturnType();
+			setValue(BeanUtils.parse(value));
+			((JDialog) editorDialogs.get(clazz)).setVisible(true);
+		}
+
+		public Object getValue() {
+			return value;
+		}
+
+		public void setValue(Object value) {
+			this.value = value;
+		}
+
+		public PropertiesTable getPropertiesTable() {
+			return propertiesTable;
+		}
+
+		public void setPropertiesTable(PropertiesTable propertiesTable) {
+			this.propertiesTable = propertiesTable;
+		}
+
+	}
+
+	public PropertiesTable getPropertiesTable() {
+		return propertiesTable;
+	}
+
+	public void setPropertiesTable(PropertiesTable propertiesTable) {
+		this.propertiesTable = propertiesTable;
+	}
+
+}

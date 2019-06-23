@@ -1,0 +1,63 @@
+package com.samisari.cezmi.core;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.Paint;
+import java.awt.PaintContext;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+
+import org.apache.log4j.Logger;
+
+public class CezmiScrollableRegion {
+	private static final Logger	LOGGER	= Logger.getLogger(CezmiScrollableRegion.class);
+	private Rectangle			bounds;
+	private BufferedImage		image;
+	private Rectangle			ImageBounds;
+	int							x, y;
+
+	public CezmiScrollableRegion(BufferedImage image, Rectangle bounds) {
+		setImage(image);
+		setBounds(bounds);
+	}
+
+	public void paint(Graphics2D g2) {
+		LOGGER.debug(getBounds().toString());
+		if (getBounds().width > 0 && getBounds().height > 0) {
+			image = image.getSubimage(0, 0, getBounds().width, getBounds().height);
+			g2.setColor(Color.WHITE);
+			g2.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+			g2.setColor(Color.BLACK);
+
+			g2.drawImage(image, null, bounds.x, bounds.y);
+		}
+	}
+
+	public Rectangle getBounds() {
+		return bounds;
+	}
+
+	public void setBounds(Rectangle bounds) {
+		this.bounds = bounds;
+	}
+
+	public BufferedImage getImage() {
+		return image;
+	}
+
+	public void setImage(BufferedImage image) {
+		this.image = image;
+	}
+
+	public Rectangle getImageBounds() {
+		return ImageBounds;
+	}
+
+	public void setImageBounds(Rectangle imageBounds) {
+		ImageBounds = imageBounds;
+	}
+}

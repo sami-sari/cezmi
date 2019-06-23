@@ -1,0 +1,4 @@
+1 = com.samisari.graphics.commands.CmdDropDown
+2 = com.samisari.graphics.commands.CmdZoomIn
+3 = com.samisari.graphics.commands.CmdZoomOut
+4 = com.samisari.cezmi.component.CmdConnector

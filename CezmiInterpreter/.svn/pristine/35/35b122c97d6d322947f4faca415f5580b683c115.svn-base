@@ -1,0 +1,57 @@
+package com.samisari.cezmi.interpreter;
+
+import java.awt.Color;
+import java.awt.Rectangle;
+
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.graphics.commands.CmdButton;
+import com.samisari.guidesigner.CmdWindow;
+
+public class CezmiDialog {
+	private String	source;
+	CmdWindow		wnd;
+	CmdButton		btn;
+	
+
+	public CezmiDialog() {
+		wnd = new CmdWindow();
+		wnd.setBounds(new Rectangle(0, 0, 200, 300));
+		wnd.setTitleText("Dialog");
+		wnd.setBorderColor(Color.BLACK);
+		
+		btn = new CmdButton();
+		btn.setBounds(new Rectangle(75, 250, 50, 25));
+		btn.setText("Tamam");
+		btn.setBorderColor(Color.BLACK);
+	}
+
+	public void edit() {
+
+	}
+
+	public void delete() {
+
+	}
+
+	public void debug() {
+
+	}
+
+	public void run() {
+		CommandManager.getInstance().getHistory().add(wnd);
+		CommandManager.getInstance().getHistory().add(btn);
+	}
+
+	public void load(String filename) {
+
+	}
+
+	public String getSource() {
+		return source;
+	}
+
+	public void setSource(String source) {
+		this.source = source;
+	}
+
+}

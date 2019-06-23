@@ -1,0 +1,357 @@
+package com.samisari.common.util.bean;
+
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.geom.AffineTransform;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.lang.reflect.Method;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.StringTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.imageio.ImageIO;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import com.samisari.common.util.ParserUtils;
+import com.sun.org.apache.xml.internal.security.exceptions.Base64DecodingException;
+import com.sun.org.apache.xml.internal.security.utils.Base64;
+
+public class BeanUtils {
+	private static Log LOGGER = LogFactory.getLog(BeanUtils.class);
+
+	public static void string2Value(Object bean, Class<?> type, Method setterMethod, String propertyValue) throws Exception {
+		try {
+			if (type.equals(String.class)) {
+				if (setterMethod != null)
+					setterMethod.invoke(bean, propertyValue);
+			} else if (propertyValue == null || propertyValue.isEmpty()) {
+				if (setterMethod != null) {
+					setterMethod.invoke(bean, (Object) null);
+				}
+			} else if (type.equals(Integer.class) || type.equals(int.class)) {
+				setterMethod.invoke(bean, new Integer(new Integer(propertyValue)));
+			} else if (type.equals(Float.class) || type.equals(float.class)) {
+				setterMethod.invoke(bean, new Float(propertyValue));
+			} else if (type.equals(Double.class) || type.equals(double.class)) {
+				setterMethod.invoke(bean, new Double(propertyValue));
+			} else if (type.equals(Boolean.class) || type.equals(boolean.class)) {
+				setterMethod.invoke(bean, new Boolean(propertyValue));
+			} else if (type.equals(Font.class)) {
+				setterMethod.invoke(bean, string2Font(propertyValue));
+			} else if (type.equals(Color.class)) {
+				setterMethod.invoke(bean, string2Color(propertyValue));
+			} else if (type.equals(Rectangle.class)) {
+				setterMethod.invoke(bean, string2Rectangle(propertyValue));
+			} else if (type.equals(BufferedImage.class)) {
+				setterMethod.invoke(bean, string2BufferedImage(propertyValue));
+			} else if (type.equals(List.class)) {
+				setterMethod.invoke(bean, string2List(propertyValue));
+			} else if (type.equals(Point.class)) {
+				setterMethod.invoke(bean, string2Point(propertyValue));
+			} else if (type.equals(AffineTransform.class)) {
+				setterMethod.invoke(bean, string2AffineTransform(propertyValue));
+			} else {
+				try {
+					if (type.getMethod("serialize", null)!=null) {
+						
+					}
+				} catch(Exception e) {
+					
+				}
+				throw new Exception(type.getName() + " could not be deserialised " + bean.getClass().getName() + " " + setterMethod.getName() + " property.");
+			}
+		} catch (Exception e) {
+			throw e;
+		}
+	}
+
+	public static List<Object> string2List(String propertyValue) {
+		List<Object> list = new ArrayList<Object>();
+		StringTokenizer st = new StringTokenizer(propertyValue, ";");
+		while (st.hasMoreTokens()) {
+			String tmp = st.nextToken();
+			Object val = parse(tmp);
+			list.add(val);
+		}
+		return list;
+	}
+
+	private static final HashMap<String, Method> parserMap = new HashMap<String, Method>();
+
+	static {
+		try {
+			parserMap.put("java.awt.Point", BeanUtils.class.getMethod("string2Point", String.class));
+			parserMap.put("java.awt.Color", BeanUtils.class.getMethod("string2Color", String.class));
+			parserMap.put("java.awt.Font", BeanUtils.class.getMethod("string2Font", String.class));
+			parserMap.put("java.util.List", BeanUtils.class.getMethod("string2List", String.class));
+			parserMap.put("java.awt.Rectangle", BeanUtils.class.getMethod("string2Rectangle", String.class));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public static Object parse(String str) {
+		int pos = -1;
+		try {
+			if ((pos = str.indexOf("[")) > -1) {
+				return parserMap.get(str.substring(0, pos)).invoke(null, str);
+			} else {
+				return str;
+			}
+		} catch (Throwable t) {
+			// ignore
+		}
+		return str;
+	}
+
+	public static String value2String(Object propertyValue) {
+		try {
+			if (propertyValue == null) {
+				return "";
+			}
+			Class<?> type = propertyValue.getClass();
+			if (propertyValue instanceof String) {
+				return (String) propertyValue;
+			}
+			if ((propertyValue instanceof Integer) || (propertyValue instanceof Float) || (propertyValue instanceof Double) || (propertyValue instanceof Boolean)) {
+				return propertyValue.toString();
+			}
+			if ((propertyValue instanceof Font)) {
+				return font2String((Font) propertyValue);
+			}
+			if ((propertyValue instanceof Color)) {
+				return color2String((Color) propertyValue);
+			}
+			if ((propertyValue instanceof Rectangle)) {
+				return rectangle2String((Rectangle) propertyValue);
+			}
+			if ((propertyValue instanceof BufferedImage)) {
+				return bufferedImage2String((BufferedImage) propertyValue);
+			}
+			if (propertyValue instanceof List) {
+				return list2String((List<?>) propertyValue);
+			}
+			if (propertyValue instanceof Point) {
+				return point2String((Point) propertyValue);
+			}
+			if (propertyValue instanceof AffineTransform) {
+				return affineTransform2String((AffineTransform) propertyValue);
+			}
+			if (propertyValue.getClass().isEnum()) {
+				return propertyValue.toString();
+			}
+			try {
+				Method serialiseMethod = propertyValue.getClass().getMethod("serialise", new Class<?>[] { OutputStream.class });
+				ByteArrayOutputStream out = new ByteArrayOutputStream();
+				serialiseMethod.invoke(propertyValue, out);
+				return new String(out.toByteArray(), Charset.forName("UTF-8"));
+			} catch (Throwable e) {
+				e.printStackTrace(System.out);
+			}
+			throw new Exception(type.getName() + " could not be serialised ");
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	private static String affineTransform2String(AffineTransform propertyValue) {
+		StringBuffer sb = new StringBuffer();
+		double[] matrix = new double[6];
+		propertyValue.getMatrix(matrix);
+		sb.append(propertyValue.getClass().getName());
+
+		sb.append("[");
+		for (int i = 0; i < 5; i++) {
+			sb.append(matrix[i]);
+			sb.append(";");
+		}
+		sb.append(matrix[5]);
+		sb.append("]");
+		return sb.toString();
+	}
+
+	private static AffineTransform string2AffineTransform(String propertyValue) {
+		double[] matrix = new double[6];
+		Pattern pattern = Pattern.compile("java\\.awt\\.geom\\.AffineTransform\\[([^\\]]*)\\]");
+		Matcher matcher = pattern.matcher(propertyValue);
+		if (matcher.matches()) {
+			StringTokenizer st = new StringTokenizer(matcher.group(1), ";");
+			int i = 0;
+			while (st.hasMoreTokens()) {
+				String tmp = st.nextToken();
+				double val = Double.parseDouble(tmp);
+				matrix[i++] = val;
+			}
+			return new AffineTransform(matrix);
+		}
+
+		return null;
+
+	}
+
+	private static String point2String(Point propertyValue) {
+		StringBuffer sb = new StringBuffer();
+		sb.append(propertyValue.getClass().getName());
+		sb.append("[");
+		sb.append(propertyValue.x);
+		sb.append(",");
+		sb.append(propertyValue.y);
+		sb.append("]");
+
+		return sb.toString();
+	}
+
+	public static Point string2Point(String value) {
+		Pattern pattern = Pattern.compile("java\\.awt\\.Point\\[(\\d+),(\\d+)\\]");
+		Matcher matcher = pattern.matcher(value);
+		if (matcher.matches()) {
+			return new Point(Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)));
+		}
+
+		return null;
+	}
+
+	public static String list2String(List<?> propertyValue) {
+		return ListHandler.toString(propertyValue);
+	}
+
+	public static String bufferedImage2String(BufferedImage image) {
+		String result = "";
+		ByteArrayOutputStream imageStream = new ByteArrayOutputStream(1024);
+		try {
+			ImageIO.write(image, "png", imageStream);
+			return new String(Base64.encode(imageStream.toByteArray()));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return result;
+	}
+
+	public static Object string2BufferedImage(String value) {
+		byte[] imageBytes = null;
+		try {
+			imageBytes = Base64.decode(value);
+		} catch (Base64DecodingException e1) {
+			e1.printStackTrace();
+		}
+		ByteArrayInputStream imageStream = new ByteArrayInputStream(imageBytes);
+		try {
+			return ImageIO.read(imageStream);
+		} catch (Exception e) {
+			LOGGER.error("Error", e);
+		} finally {
+			try {
+				// imageStream.close();
+			} catch (Exception e) {
+
+			}
+		}
+		return null;
+	}
+
+	public static String rectangle2String(Rectangle value) {
+		return "java.awt.Rectangle[x=" + value.x + ",y=" + value.y + ",width=" + value.width + ",height=" + value.height + "]";
+	}
+
+	public static Object string2Rectangle(String value) {
+		Pattern pattern = Pattern.compile("java\\.awt\\.Rectangle\\[x=(\\d+),y=(\\d+),width=(\\d+),height=(\\d+)\\]");
+		Matcher matcher = pattern.matcher(value);
+		if (matcher.matches()) {
+			return new Rectangle(Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)), Integer.parseInt(matcher.group(3)), Integer.parseInt(matcher.group(4)));
+		}
+
+		return null;
+	}
+
+	public static String color2String(Color value) {
+		return "java.awt.Color[r=" + value.getRed() + ",g=" + value.getGreen() + ",b=" + value.getBlue() + "]";
+	}
+
+	public static Color string2Color(String value) {
+		Pattern pattern = Pattern.compile("java\\.awt\\.Color\\[r=(\\d+),g=(\\d+),b=(\\d+)\\]");
+		Matcher matcher = pattern.matcher(value);
+		if (matcher.matches()) {
+			return new Color(Integer.parseInt(matcher.group(1)), Integer.parseInt(matcher.group(2)), Integer.parseInt(matcher.group(3)));
+		} else {
+
+			if (value.startsWith("ColorRGB(")) {
+				int[] start = { 0 };
+				int r = Integer.parseInt(ParserUtils.getTextBetween(value, "(", ",", start));
+				int g = Integer.parseInt(ParserUtils.getTextBetween(value, "", ",", start));
+				int b = Integer.parseInt(ParserUtils.getTextBetween(value, "", ")", start));
+				return new Color(r, g, b);
+			} else if (value.startsWith("java.awt.Color[r=")) {
+				int[] start = { 0 };
+				int r = Integer.parseInt(ParserUtils.getTextBetween(value, "r=", ",", start));
+				int g = Integer.parseInt(ParserUtils.getTextBetween(value, "g=", ",", start));
+				int b = Integer.parseInt(ParserUtils.getTextBetween(value, "b=", "]", start));
+				return new Color(r, g, b);
+			}
+		}
+
+		return null;
+	}
+
+	public static String font2String(Font value) {
+		return "java.awt.Font[family=" + value.getFamily() + ",name=" + value.getName() + ",style="
+				+ (value.getStyle() == Font.BOLD ? "bold"
+						: (value.getStyle() == Font.PLAIN ? "plain"
+								: (value.getStyle() == Font.ITALIC ? "italic" : (value.getStyle() == (Font.BOLD & Font.ITALIC) ? "bolditalic" : ""))))
+				+ ",size=" + value.getSize() + "]";
+	}
+
+	public static Font string2Font(String value) {
+		Pattern pattern = Pattern.compile("java\\.awt\\.Font\\[family=([^,]+),name=([^,]+),style=([^,]+),size=(\\d+)]");
+		Matcher matcher = pattern.matcher(value);
+		if (matcher.matches()) {
+			return new Font(matcher.group(2),
+					("bold".equals(matcher.group(3)) ? Font.BOLD
+							: ("plain".equals(matcher.group(3)) ? Font.PLAIN
+									: ("italic".equals(matcher.group(3)) ? Font.ITALIC : ("bolditalic".equals(matcher.group(3)) ? Font.BOLD & Font.ITALIC : null)))),
+					Integer.parseInt(matcher.group(4)));
+		} else {
+			if (value.startsWith("Font(")) {
+				int[] start = { 0 };
+				String familly = ParserUtils.getTextBetween(value, "(", ",", start);
+				int style = Integer.parseInt(ParserUtils.getTextBetween(value, "", ",", start));
+				int size = Integer.parseInt(ParserUtils.getTextBetween(value, "", ")", start));
+				return new Font(familly, style, size);
+			}
+		}
+
+		return null;
+	}
+
+	public static Method getGetter(String propertyName, Class<?> bean) {
+		StringBuilder methodName = new StringBuilder();
+		String camelCase = propertyName.substring(0, 1).toUpperCase() + propertyName.substring(1);
+		methodName.append("get");
+		methodName.append(camelCase);
+		Method method = null;
+		try {
+			method = bean.getMethod(methodName.toString(), new Class[0]);
+		} catch (NoSuchMethodException | SecurityException e) {
+			methodName.delete(0, 3);
+			methodName.append("is", 0, 2);
+			try {
+				method = bean.getMethod(methodName.toString(), new Class[0]);
+			} catch (NoSuchMethodException | SecurityException e1) {
+			}
+		}
+
+		return method;
+	}
+
+}

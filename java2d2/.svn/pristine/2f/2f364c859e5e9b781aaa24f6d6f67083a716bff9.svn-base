@@ -1,0 +1,105 @@
+package com.samisari.graphics.commands;
+
+import java.awt.Graphics;
+import java.awt.Point;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.List;
+
+import javax.swing.JFileChooser;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.Operation;
+import com.samisari.cezmi.util.FileChooserHistory;
+
+public class CmdSave extends AbstractCommand {
+	private static Logger logger=Logger.getLogger(CmdSave.class);
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -4566584904534584098L;
+
+	@Override
+	public void redo() {
+
+	}
+
+	@Override
+	public void undo() {
+
+	}
+	
+	public void run() {
+		// new JFileChooser JFileChooser.SAVE_DIALOG
+		JFileChooser fileChooser = new JFileChooser();
+		String lastPath = FileChooserHistory.get(this.getClass().getName());
+		if (lastPath != null)
+			fileChooser.setCurrentDirectory(new File(lastPath));
+		fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+		int result = fileChooser.showSaveDialog(null);
+		try {
+			if (result != JFileChooser.CANCEL_OPTION) {
+				File fileName = fileChooser.getSelectedFile();
+				FileChooserHistory.put(this.getClass().getName(), fileName.getParent());
+				List<AbstractCommand> history = CommandManager.getInstance().getHistory();
+				
+				FileOutputStream out = new FileOutputStream(fileName);
+				for (AbstractCommand cmd:history) {
+					try {
+						logger.debug(cmd.getClass());
+						cmd.serialise(out);
+					} catch (Exception e) {
+						logger.error("Serialise Error", e);
+					} 
+				}
+
+				out.flush();
+				out.close();
+			}
+		} catch (FileNotFoundException e1) {
+			logger.error("File Not Found");
+		} catch (IOException e1) {
+			logger.error("Error", e1);
+		} finally {
+			CommandManager.getInstance().endCommand();
+		}
+
+	}
+
+	@Override
+	public void mouseClicked(int x, int y) {
+		
+	}
+
+	@Override
+	public void mouseMoved(int x, int y) {
+		
+	}
+
+	@Override
+	public void mousePressed(int x, int y) {
+		
+	}
+
+	@Override
+	public void mouseReleased(int x, int y) {
+		
+	}
+
+	@Override
+	public void paint(Graphics g) {
+		
+	}
+
+	@Override
+	public Point getOperationPoint(Operation operation) {
+		return null;
+	}
+
+}

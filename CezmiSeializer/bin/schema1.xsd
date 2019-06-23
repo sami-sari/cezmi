@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xs:schema version="1.0" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="abstractCommand" type="abstractCommand"/>
+
+  <xs:complexType name="abstractCommand" abstract="true">
+    <xs:sequence>
+      <xs:element name="bounds" type="rectangle" minOccurs="0"/>
+      <xs:element name="currentStatus">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="entry" minOccurs="0" maxOccurs="unbounded">
+              <xs:complexType>
+                <xs:sequence>
+                  <xs:element name="key" minOccurs="0" type="xs:anyType"/>
+                  <xs:element name="value" minOccurs="0" type="xs:anyType"/>
+                </xs:sequence>
+              </xs:complexType>
+            </xs:element>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="height" type="xs:int"/>
+      <xs:element name="id" type="xs:string" minOccurs="0"/>
+      <xs:element name="name" type="xs:string" minOccurs="0"/>
+      <xs:element name="parentId" type="xs:string" minOccurs="0"/>
+      <xs:element name="selected" type="xs:boolean"/>
+      <xs:element name="transform" type="affineTransform" minOccurs="0"/>
+      <xs:element name="width" type="xs:int"/>
+      <xs:element name="x" type="xs:int"/>
+      <xs:element name="y" type="xs:int"/>
+      <xs:element name="z" type="xs:double"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="rectangle">
+    <xs:complexContent>
+      <xs:extension base="rectangle2D">
+        <xs:sequence>
+          <xs:element name="x" type="xs:int"/>
+          <xs:element name="y" type="xs:int"/>
+          <xs:element name="width" type="xs:int"/>
+          <xs:element name="height" type="xs:int"/>
+          <xs:element name="bounds" type="rectangle" minOccurs="0"/>
+          <xs:element name="location" type="point" minOccurs="0"/>
+          <xs:element name="size" type="dimension" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="rectangle2D" abstract="true">
+    <xs:complexContent>
+      <xs:extension base="rectangularShape">
+        <xs:sequence/>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="rectangularShape" abstract="true">
+    <xs:sequence>
+      <xs:element name="frame" type="rectangle2D" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="point">
+    <xs:complexContent>
+      <xs:extension base="point2D">
+        <xs:sequence>
+          <xs:element name="x" type="xs:int"/>
+          <xs:element name="y" type="xs:int"/>
+          <xs:element name="location" type="point" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="point2D" abstract="true">
+    <xs:sequence/>
+  </xs:complexType>
+
+  <xs:complexType name="dimension">
+    <xs:complexContent>
+      <xs:extension base="dimension2D">
+        <xs:sequence>
+          <xs:element name="width" type="xs:int"/>
+          <xs:element name="height" type="xs:int"/>
+          <xs:element name="size" type="dimension" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="dimension2D" abstract="true">
+    <xs:sequence/>
+  </xs:complexType>
+
+  <xs:complexType name="affineTransform">
+    <xs:sequence/>
+  </xs:complexType>
+</xs:schema>
+

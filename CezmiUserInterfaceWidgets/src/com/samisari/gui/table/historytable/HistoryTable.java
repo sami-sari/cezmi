@@ -1,0 +1,72 @@
+package com.samisari.gui.table.historytable;
+
+import java.awt.Component;
+
+import javax.swing.JButton;
+import javax.swing.JTable;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.table.TableCellRenderer;
+
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+import com.samisari.cezmi.core.History;
+
+public class HistoryTable extends JTable {
+	private static final long	serialVersionUID	= -452318346617860543L;
+	private JButton				btnDelete			= new JButton("Sil");
+	private JButton				btnHide				= new JButton("Sakla");
+	private JButton				btnAddToLayer		= new JButton("Ekle");
+
+	public HistoryTable() {
+		super(HistoryTableModel.getInstance());
+		setRowSelectionAllowed(true);
+		setCellSelectionEnabled(true);
+		getColumnModel().getColumn(1).setCellRenderer(new TableCellRenderer() {
+			@Override
+			public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+				return btnDelete;
+			}
+
+		});
+
+		getColumnModel().getColumn(2).setCellRenderer(new TableCellRenderer() {
+			@Override
+			public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+				return btnHide;
+			}
+
+		});
+
+		getColumnModel().getColumn(3).setCellRenderer(new TableCellRenderer() {
+			@Override
+			public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+				return btnAddToLayer;
+			}
+
+		});
+
+		getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				int index = HistoryTable.this.getSelectedRow();
+				if (!e.getValueIsAdjusting() && index >= 0) {
+					AbstractCommand cmd = CommandManager.getDeaultInstance().getHistory().get(index);
+					cmd.setSelected(true);
+					CommandManager.getDeaultInstance().fireCommandSelectionChanged(cmd);
+					ConsolePropertyManager.getDefaultInstance().getConsolePanel().repaint();
+				}
+			}
+		});
+
+	}
+
+	public void setSelectedCommand(AbstractCommand abstractCommand) {
+		History cmdList = CommandManager.getDeaultInstance().getHistory();
+		int selectedIndex = cmdList.indexOf(abstractCommand);
+		getSelectionModel().setSelectionInterval(selectedIndex, selectedIndex);
+		repaint();
+	}
+}

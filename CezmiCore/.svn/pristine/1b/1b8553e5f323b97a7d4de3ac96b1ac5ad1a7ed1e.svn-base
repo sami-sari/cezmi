@@ -1,0 +1,6 @@
+package com.samisari.cezmi.core;
+
+public enum Status {
+	START, DRAGGING, END, CONTEXT_MENU, TYPING, CONNECT, OBJECT_1_SELECTED, OBJECT_2_SELECTED
+};
+

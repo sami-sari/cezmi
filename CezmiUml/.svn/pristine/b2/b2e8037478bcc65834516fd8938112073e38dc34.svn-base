@@ -1,0 +1,673 @@
+package com.samisari.commands.uml;
+
+import java.awt.Dimension;
+import java.awt.Insets;
+import java.awt.Point;
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Modifier;
+import java.util.List;
+
+import javax.swing.DefaultCellEditor;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
+import javax.swing.JDialog;
+import javax.swing.JFileChooser;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.WindowConstants;
+import javax.swing.table.DefaultTableModel;
+
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParseException;
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.BodyDeclaration;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.ConstructorDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.PrimitiveType;
+import com.github.javaparser.ast.type.ReferenceType;
+import com.github.javaparser.ast.type.VoidType;
+import com.samisari.cezmi.util.FileChooserHistory;
+
+public class CmdClassWizard extends JDialog {
+	private static final long serialVersionUID = 1L;
+	CmdClass command;
+	public static final Object[] fieldsColumnNames = new Object[] { "Visibility", "static", "final", "synchronized",
+			"volatile", "transient", "Type", "Name", "Description" };
+	public static final JTable fieldsTable = new JTable(new DefaultTableModel(
+			new Object[][] { { "private", false, false, false, false, false, "java.lang.String", "name", "Name" } },
+			fieldsColumnNames)) {
+		private static final long serialVersionUID = 1L;
+		private Class<?>[] columnClasses = new Class<?>[] { String.class, Boolean.class, Boolean.class, Boolean.class,
+				Boolean.class, Boolean.class, String.class, String.class, String.class, String.class };;
+
+		public java.lang.Class<?> getColumnClass(int column) {
+			return columnClasses[column];
+		};
+
+	};
+	public static final Object[] methodsColumnNames = new Object[] { "Visibility", "abstract", "static", "final",
+			"synchronized", "volatile", "transient", "Type", "Name", "Parameters" };
+	public static final JTable methodsTable = new JTable(new DefaultTableModel(
+			new Object[][] {
+					{ "public", false, false, false, false, false, false, "java.lang.String", "getName", "()" },
+					{ "public", false, false, false, false, false, false, "", "setName", "(java.lang.String name)" } },
+			methodsColumnNames)) {
+		/**
+		* 
+		*/
+		private static final long serialVersionUID = 1L;
+		private Class<?>[] columnClasses = new Class<?>[] { String.class, Boolean.class, Boolean.class, Boolean.class,
+				Boolean.class, Boolean.class, Boolean.class, String.class, String.class, String.class, String.class };;
+
+		public java.lang.Class<?> getColumnClass(int column) {
+			return columnClasses[column];
+		};
+	};
+
+	JLabel nameLbl = new JLabel("Name");
+	JTextField nameTxt;
+	JTextField superClassTxt = new JTextField();
+	JTextField interfacesTxt = new JTextField();
+	JButton addFieldBtn = new JButton("+");
+	JButton addMethodBtn = new JButton("+");
+	JScrollPane fieldsScroll = new JScrollPane(fieldsTable);
+	JScrollPane methodsScroll = new JScrollPane(methodsTable);
+	JButton removeFieldBtn = new JButton("-");
+	JButton removeMethodBtn = new JButton("-");
+	JButton saveBtn = new JButton("OK");
+	JButton cancelBtn = new JButton("Cancel");
+	JButton parseBtn = new JButton("Parse");
+	JTabbedPane tabPane = new JTabbedPane();
+
+	public CmdClassWizard(CmdClass command) {
+		super();
+		setTitle("Table Wizard");
+		setModal(true);
+		setUndecorated(true);
+		Point cpLoc = new Point((int) (Toolkit.getDefaultToolkit().getScreenSize().getWidth() / 2 - 400),
+				(int) (Toolkit.getDefaultToolkit().getScreenSize().getHeight() / 2 - 320));
+		// cpLoc.x += command.getX();
+		// cpLoc.y += command.getY();
+		setLocation(cpLoc.x, cpLoc.y);
+		setCommand(command);
+		setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+		setLayout(null);
+		setSize(new Dimension(800, 620));
+		nameLbl.setBounds(10, 10, 100, 20);
+		add(nameLbl);
+		nameTxt = new JTextField(command.getTitleText());
+		nameTxt.setBounds(115, 10, 200, 20);
+		add(nameTxt);
+
+		JLabel superClassLbl = new JLabel("Super class");
+		superClassLbl.setBounds(10, 35, 100, 20);
+		add(superClassLbl);
+		superClassTxt.setBounds(110, 35, 250, 20);
+		add(superClassTxt);
+
+		JLabel interfacesLbl = new JLabel("Interfaces");
+		interfacesLbl.setBounds(380, 35, 100, 20);
+		add(interfacesLbl);
+		interfacesTxt.setBounds(480, 35, 300, 20);
+		add(interfacesTxt);
+
+		Object[] emptyFieldRow = new Object[] { "private", false, false, false, false, false, "java.lang.String", "oid",
+				"Oid field" };
+		Object[] emptyMethodRow = new Object[] { "public", false, false, false, false, false, false, "java.lang.String",
+				"oid", "Oid field" };
+
+		tabPane.setBounds(10, 60, 780, 500);
+		JPanel fieldsPanel = new JPanel();
+		fieldsPanel.setLayout(null);
+		fieldsPanel.setBounds(10, 60, 780, 500);
+
+		JPanel methodsPanel = new JPanel();
+		methodsPanel.setLayout(null);
+		methodsPanel.setBounds(10, 60, 780, 500);
+
+		JPanel sourceCodePanel = new JPanel();
+		sourceCodePanel.setLayout(null);
+		sourceCodePanel.setBounds(10, 60, 780, 500);
+		
+		tabPane.add("Fields", fieldsPanel);
+		tabPane.add("Methods", methodsPanel);
+		tabPane.add("Source Code", sourceCodePanel);
+
+		addTable(25, fieldsScroll, addFieldBtn, fieldsTable, emptyFieldRow, fieldsColumnNames, removeFieldBtn,
+				fieldsPanel);
+		addTable(25, methodsScroll, addMethodBtn, methodsTable, emptyMethodRow, methodsColumnNames, removeMethodBtn,
+				methodsPanel);
+		add(tabPane);
+
+		saveBtn.setMargin(new Insets(0, 0, 0, 0));
+		saveBtn.setBounds(710, 570, 70, 20);
+		saveBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				save();
+				CmdClassWizard.this.dispose();
+			}
+		});
+		add(saveBtn);
+		cancelBtn.setMargin(new Insets(0, 0, 0, 0));
+		cancelBtn.setBounds(620, 570, 70, 20);
+		cancelBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				CmdClassWizard.this.dispose();
+			}
+		});
+		add(cancelBtn);
+		parseBtn.setMargin(new Insets(0, 0, 0, 0));
+		parseBtn.setBounds(530, 570, 70, 20);
+		parseBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				JFileChooser fc = new JFileChooser();
+				String lastPath = FileChooserHistory.get(CmdClassWizard.this.getClass().getName());
+				if (lastPath != null)
+					fc.setCurrentDirectory(new File(lastPath));
+				if (fc.showOpenDialog(CmdClassWizard.this) == JFileChooser.APPROVE_OPTION) {
+					File f = fc.getSelectedFile();
+					FileChooserHistory.put(CmdClassWizard.this.getClass().getName(), f.getParent());
+					parseClass(f);
+					load();
+				}
+			}
+		});
+		add(parseBtn);
+		load();
+	}
+
+	private void load() {
+		loadFields();
+		loadMethods();
+	}
+
+	private void loadFields() {
+		DefaultTableModel model = (DefaultTableModel) fieldsTable.getModel();
+		while (model.getRowCount() > 0)
+			model.removeRow(0);
+
+		nameTxt.setText(getCommand().getName());
+		
+		String clazz = "class Dummy {";
+		for (String fld : getCommand().getFields()) {
+			clazz += fld + ";";
+
+		}
+		clazz += "}";
+		
+		System.out.println(clazz);
+		try {
+			CompilationUnit cu = JavaParser.parse(new ByteArrayInputStream(clazz.getBytes()));
+			ClassOrInterfaceDeclaration type = (ClassOrInterfaceDeclaration) cu.getTypes().get(0);
+			List<BodyDeclaration> members = type.getMembers();
+			for (BodyDeclaration m : members) {
+				FieldDeclaration f = ((FieldDeclaration) m);
+				int md = f.getModifiers();
+				String name = f.getVariables().get(0).getId().getName();
+				String typ = "";
+				com.github.javaparser.ast.type.Type ftype = f.getType();
+				if (ftype instanceof ClassOrInterfaceType) {
+					typ = ((ClassOrInterfaceType) ftype).getName();
+				} else if (ftype instanceof PrimitiveType) {
+					typ = ((PrimitiveType) ftype).toString();
+				} else if (ftype instanceof ReferenceType) {
+					typ = ((ReferenceType) ftype).getType().toString();
+				}
+				Object[] rowData = new Object[] {
+						(Modifier.isPrivate(md) ? "private"
+								: (Modifier.isPublic(md) ? "public" : (Modifier.isProtected(md) ? "protected" : ""))),
+						Modifier.isStatic(md), Modifier.isFinal(md), Modifier.isSynchronized(md),
+						Modifier.isVolatile(md), Modifier.isTransient(md), typ, name, "" };
+				model.addRow(rowData);
+			}
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	private void loadMethods() {
+		DefaultTableModel model = (DefaultTableModel) methodsTable.getModel();
+		while (model.getRowCount() > 0)
+			model.removeRow(0);
+		nameTxt.setText(getCommand().getName());
+		String clazz = "class Dummy {";
+		for (String mthd : getCommand().getMethods()) {
+			clazz += mthd;
+
+		}
+		clazz += "}";
+		System.out.println(clazz);
+		try {
+			CompilationUnit cu = JavaParser.parse(new ByteArrayInputStream(clazz.getBytes()));
+			ClassOrInterfaceDeclaration type = (ClassOrInterfaceDeclaration) cu.getTypes().get(0);
+			List<BodyDeclaration> members = type.getMembers();
+			for (BodyDeclaration m : members) {
+				if (m instanceof ConstructorDeclaration) {
+					ConstructorDeclaration f = ((ConstructorDeclaration) m);
+					int md = f.getModifiers();
+					String name = f.getName();
+					String typ = "";
+					Object[] rowData = new Object[] {
+							(Modifier.isPrivate(md) ? "private"
+									: (Modifier.isPublic(md) ? "public"
+											: (Modifier.isProtected(md) ? "protected" : ""))),
+							Modifier.isStatic(md), Modifier.isFinal(md), Modifier.isSynchronized(md),
+							Modifier.isVolatile(md), Modifier.isTransient(md), typ, name, "" };
+					model.addRow(rowData);
+				} else {
+					MethodDeclaration f = ((MethodDeclaration) m);
+					int md = f.getModifiers();
+					String name = f.getName();
+					String typ = "";
+					com.github.javaparser.ast.type.Type ftype = f.getType();
+					if (ftype instanceof ClassOrInterfaceType) {
+						typ = ((ClassOrInterfaceType) ftype).getName();
+					} else if (ftype instanceof PrimitiveType) {
+						typ = ((PrimitiveType) ftype).toString();
+					} else if (ftype instanceof ReferenceType) {
+						typ = ((ReferenceType) ftype).getType().toString();
+					}
+					Object[] rowData = new Object[] {
+							(Modifier.isPrivate(md) ? "private"
+									: (Modifier.isPublic(md) ? "public"
+											: (Modifier.isProtected(md) ? "protected" : ""))),
+							Modifier.isAbstract(md), Modifier.isStatic(md), Modifier.isFinal(md),
+							Modifier.isSynchronized(md), Modifier.isVolatile(md), Modifier.isTransient(md), typ, name,
+							"" };
+					model.addRow(rowData);
+				}
+			}
+		} catch (ParseException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	private void parseClass(File file) {
+		CompilationUnit cu;
+
+		try {
+			getCommand().getFields().clear();
+			getCommand().getMethods().clear();
+			cu = JavaParser.parse(file);
+			List<TypeDeclaration> types = cu.getTypes();
+			for (TypeDeclaration type : types) {
+				getCommand().setName(type.getName());
+				List<BodyDeclaration> members = type.getMembers();
+				for (BodyDeclaration member : members) {
+					if (member instanceof MethodDeclaration) {
+						MethodDeclaration method = (MethodDeclaration) member;
+						int mod = method.getModifiers();
+						String modifier = (Modifier.isPublic(mod) ? "public " : "")
+								+ (Modifier.isPrivate(mod) ? "private " : "")
+								+ (Modifier.isProtected(mod) ? "protected " : "")
+								+ (Modifier.isStatic(mod) ? "static " : "") + (Modifier.isFinal(mod) ? "final " : "")
+								+ (Modifier.isAbstract(mod) ? "abstract " : "")
+								+ (Modifier.isVolatile(mod) ? "volatile " : "")
+								+ (Modifier.isSynchronized(mod) ? "volatile " : "")
+								+ (Modifier.isTransient(mod) ? "transient " : "");
+
+						String typ = "";
+						com.github.javaparser.ast.type.Type ftype = method.getType();
+						if (ftype instanceof ClassOrInterfaceType) {
+							typ = ((ClassOrInterfaceType) ftype).getName();
+						} else if (ftype instanceof PrimitiveType) {
+							typ = ((PrimitiveType) ftype).toString();
+						} else if (ftype instanceof ReferenceType) {
+							typ = ((ReferenceType) ftype).getType().toString();
+						} else if (ftype instanceof VoidType) {
+							typ = "void";
+						}
+
+						getCommand().getMethods().add(modifier + " " + typ + " " + method.getName() + "(){}");
+
+					} else if (member instanceof FieldDeclaration) {
+						FieldDeclaration fld = (FieldDeclaration) member;
+						List<String> fl = getCommand().getFields();
+						String name = fld.getVariables().get(0).getId().getName();
+						String typ = "";
+						com.github.javaparser.ast.type.Type ftype = fld.getType();
+						if (ftype instanceof ClassOrInterfaceType) {
+							typ = ((ClassOrInterfaceType) ftype).getName();
+						} else if (ftype instanceof PrimitiveType) {
+							typ = ((PrimitiveType) ftype).toString();
+						} else if (ftype instanceof ReferenceType) {
+							typ = ((ReferenceType) ftype).getType().toString();
+						}
+						int mod = fld.getModifiers();
+						String modifier = (Modifier.isPublic(mod) ? "public " : "")
+								+ (Modifier.isPrivate(mod) ? "private " : "")
+								+ (Modifier.isProtected(mod) ? "protected " : "")
+								+ (Modifier.isStatic(mod) ? "static " : "") + (Modifier.isFinal(mod) ? "final " : "")
+								+ (Modifier.isAbstract(mod) ? "abstract " : "")
+								+ (Modifier.isVolatile(mod) ? "volatile " : "")
+								+ (Modifier.isSynchronized(mod) ? "volatile " : "")
+								+ (Modifier.isTransient(mod) ? "transient " : "");
+						fl.add(modifier + " " + typ + " " + name );
+					}
+				}
+			}
+			command.setSourceCode(cu.toString());
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	private void save() {
+		getCommand().setName(nameTxt.getText());
+		getCommand().setTitleText(getCommand().getName());
+		// Todo: add super class attribute to command
+		// Todo: interfaces implemented class attribute to command
+		int rowCount = fieldsTable.getRowCount();
+		StringBuilder sb = new StringBuilder();
+		for (int row = 0; row < rowCount; row++) {
+			String visibility = (String) fieldsTable.getValueAt(row, 0);
+			Boolean isStatic = (Boolean) fieldsTable.getValueAt(row, 1);
+			Boolean isFinal = (Boolean) fieldsTable.getValueAt(row, 2);
+			Boolean isSynchronised = (Boolean) fieldsTable.getValueAt(row, 3);
+			Boolean isVolatile = (Boolean) fieldsTable.getValueAt(row, 4);
+			Boolean isTransient = (Boolean) fieldsTable.getValueAt(row, 5);
+			String dataType = (String) fieldsTable.getValueAt(row, 6);
+			String name = (String) fieldsTable.getValueAt(row, 7);
+			String description = (String) fieldsTable.getValueAt(row, 8);
+			if (visibility != null && visibility.length() > 0) {
+				sb.append(visibility);
+				sb.append(" ");
+			}
+			if (isStatic) {
+				sb.append("static");
+				sb.append(" ");
+			}
+			if (isFinal) {
+				sb.append("final");
+				sb.append(" ");
+			}
+			if (isSynchronised) {
+				sb.append("synchronized");
+				sb.append(" ");
+			}
+			if (isVolatile) {
+				sb.append("volatile");
+				sb.append(" ");
+			}
+			if (isTransient) {
+				sb.append("transient");
+				sb.append(" ");
+			}
+			sb.append(dataType);
+			sb.append(" ");
+			sb.append(name);
+			sb.append("//");
+			sb.append(description);
+			sb.append(";");
+		}
+		sb.deleteCharAt(sb.length() - 1);
+		getCommand().setFields(sb.toString());
+
+		rowCount = methodsTable.getRowCount();
+		sb = new StringBuilder();
+		for (int row = 0; row < rowCount; row++) {
+			String visibility = (String) methodsTable.getValueAt(row, 0);
+			Boolean isAbstract = (Boolean) methodsTable.getValueAt(row, 1);
+			Boolean isStatic = (Boolean) methodsTable.getValueAt(row, 2);
+			Boolean isFinal = (Boolean) methodsTable.getValueAt(row, 3);
+			Boolean isSynchronised = (Boolean) methodsTable.getValueAt(row, 4);
+			Boolean isVolatile = (Boolean) methodsTable.getValueAt(row, 5);
+			Boolean isTransient = (Boolean) methodsTable.getValueAt(row, 6);
+			String dataType = (String) methodsTable.getValueAt(row, 7);
+			String name = (String) methodsTable.getValueAt(row, 8);
+			String parameters = (String) methodsTable.getValueAt(row, 9);
+			if (visibility != null && visibility.length() > 0) {
+				sb.append(visibility);
+				sb.append(" ");
+			}
+			if (isAbstract) {
+				sb.append("abstract");
+				sb.append(" ");
+			}
+			if (isStatic) {
+				sb.append("static");
+				sb.append(" ");
+			}
+			if (isFinal) {
+				sb.append("final");
+				sb.append(" ");
+			}
+			if (isSynchronised) {
+				sb.append("synchronized");
+				sb.append(" ");
+			}
+			if (isVolatile) {
+				sb.append("volatile");
+				sb.append(" ");
+			}
+			if (isTransient) {
+				sb.append("transient");
+				sb.append(" ");
+			}
+			sb.append(dataType);
+			sb.append(" ");
+			sb.append(name);
+			sb.append("(");
+			sb.append(parameters);
+			sb.append(");");
+		}
+		sb.deleteCharAt(sb.length() - 1);
+		getCommand().setMethods(sb.toString());
+	}
+
+	private void addTable(int y, final JScrollPane scroll, final JButton addBtn, final JTable table,
+			final Object[] emptyRow, final Object[] columnNames, final JButton removeBtn, JComponent container) {
+		JComboBox<String> accessModifierCombo = new JComboBox<>();
+		table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+		table.getColumnModel().getColumn(0).setMinWidth(100);
+		table.getColumnModel().getColumn(0).setMaxWidth(100);
+		table.getColumnModel().getColumn(1).setMinWidth(40);
+		table.getColumnModel().getColumn(1).setMaxWidth(40);
+		table.getColumnModel().getColumn(2).setMinWidth(40);
+		table.getColumnModel().getColumn(2).setMaxWidth(40);
+		table.getColumnModel().getColumn(3).setMinWidth(40);
+		table.getColumnModel().getColumn(3).setMaxWidth(40);
+		table.getColumnModel().getColumn(4).setMinWidth(40);
+		table.getColumnModel().getColumn(4).setMaxWidth(40);
+		table.getColumnModel().getColumn(5).setMinWidth(40);
+		table.getColumnModel().getColumn(5).setMaxWidth(40);
+		table.getColumnModel().getColumn(6).setMinWidth(40);
+		table.getColumnModel().getColumn(6).setMaxWidth(100);
+
+		accessModifierCombo.addItem("");
+		accessModifierCombo.addItem("public");
+		accessModifierCombo.addItem("private");
+		accessModifierCombo.addItem("protected");
+		table.getColumnModel().getColumn(0).setCellEditor(new DefaultCellEditor(accessModifierCombo));
+		scroll.setBounds(10, y + 25, container.getBounds().width - 20, container.getBounds().height - y - 85);
+		container.add(scroll);
+
+		addBtn.setMargin(new Insets(0, 0, 0, 0));
+		addBtn.setBounds(10, y, 20, 20);
+		addBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				int columnCount = table.getModel().getColumnCount();
+				int rowCount = table.getRowCount();
+				Object[][] data = new Object[rowCount + 1][columnCount];
+				int row = 0;
+				for (; row < rowCount; row++) {
+					for (int column = 0; column < columnCount; column++) {
+						Object val = table.getValueAt(row, column);
+						data[row][column] = val;
+					}
+				}
+				// Empty line
+				for (int column = 0; column < columnCount; column++) {
+					data[row] = emptyRow;
+				}
+				table.setModel(new DefaultTableModel(data, columnNames));
+				scroll.repaint();
+			}
+		});
+		container.add(addBtn);
+
+		removeBtn.setMargin(new Insets(0, 0, 0, 0));
+		removeBtn.setBounds(40, y, 20, 20);
+		removeBtn.addActionListener(new ActionListener() {
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				int columnCount = table.getModel().getColumnCount();
+				int rowCount = table.getRowCount();
+				Object[][] data = new Object[rowCount - 1][columnCount];
+				int row = 0;
+				int removed = 0;
+				if (table.getSelectedRow() > -1) {
+					for (; row < rowCount; row++) {
+						if (row != table.getSelectedRow())
+							for (int column = 0; column < columnCount; column++) {
+								Object val = table.getValueAt(row, column);
+								data[row - removed][column] = val;
+							}
+						else
+							removed = 1;
+					}
+					table.setModel(new DefaultTableModel(data, columnNames));
+					scroll.repaint();
+				}
+			}
+		});
+		container.add(removeBtn);
+
+	}
+
+	// private void addMethodsTable() {
+	// methodsScroll.setBounds(10, 420, 770, 200);
+	// add(methodsScroll);
+	//
+	// addMethodBtn.setMargin(new Insets(0, 0, 0, 0));
+	// addMethodBtn.setBounds(10, 400, 20, 20);
+	// addMethodBtn.addActionListener(new ActionListener() {
+	//
+	// @Override
+	// public void actionPerformed(ActionEvent e) {
+	// int columnCount = methodsTable.getModel().getColumnCount();
+	// int rowCount = methodsTable.getRowCount();
+	// Object[][] data = new Object[rowCount + 1][columnCount];
+	// int row = 0;
+	// for (; row < rowCount; row++) {
+	// for (int column = 0; column < columnCount; column++) {
+	// Object val = methodsTable.getValueAt(row, column);
+	// data[row][column] = val;
+	// }
+	// }
+	// // Empty line
+	// for (int column = 0; column < columnCount; column++) {
+	// data[row] = new Object[] { "private", false, false, false, false, false,
+	// "java.lang.String", "oid",
+	// "Oid field" };
+	// }
+	// methodsTable.setModel(new DefaultTableModel(data, methodsColumnNames));
+	// methodsScroll.repaint();
+	// }
+	// });
+	// add(addMethodBtn);
+	//
+	// removeMethodBtn.setMargin(new Insets(0, 0, 0, 0));
+	// removeMethodBtn.setBounds(40, 85, 20, 20);
+	// removeMethodBtn.addActionListener(new ActionListener() {
+	//
+	// @Override
+	// public void actionPerformed(ActionEvent e) {
+	// int columnCount = methodsTable.getModel().getColumnCount();
+	// int rowCount = methodsTable.getRowCount();
+	// Object[][] data = new Object[rowCount - 1][columnCount];
+	// int row = 0;
+	// int removed = 0;
+	// if (methodsTable.getSelectedRow() > -1) {
+	// for (; row < rowCount; row++) {
+	// if (row != methodsTable.getSelectedRow())
+	// for (int column = 0; column < columnCount; column++) {
+	// Object val = methodsTable.getValueAt(row, column);
+	// data[row - removed][column] = val;
+	// }
+	// else
+	// removed = 1;
+	// }
+	// methodsTable.setModel(new DefaultTableModel(data, methodsColumnNames));
+	// methodsScroll.repaint();
+	// }
+	// }
+	// });
+	// add(removeMethodBtn);
+	//
+	// saveBtn.setMargin(new Insets(0, 0, 0, 0));
+	// saveBtn.setBounds(600, 400, 70, 20);
+	// saveBtn.addActionListener(new ActionListener() {
+	//
+	// @Override
+	// public void actionPerformed(ActionEvent e) {
+	// int columnCount = methodsTable.getModel().getColumnCount();
+	// int rowCount = methodsTable.getRowCount();
+	// Object[][] data = new Object[rowCount - 1][columnCount];
+	// StringBuilder sb = new StringBuilder();
+	// for (int row = 0; row < rowCount; row++) {
+	// String name = (String) methodsTable.getValueAt(row, 0);
+	// String dataType = (String) methodsTable.getValueAt(row, 1);
+	// Integer dataLength = Integer.parseInt((String)
+	// methodsTable.getValueAt(row, 2));
+	// Integer precision = Integer.parseInt((String)
+	// methodsTable.getValueAt(row, 2));
+	// Boolean nullable = (Boolean) methodsTable.getValueAt(row, 4);
+	// Boolean unique = (Boolean) methodsTable.getValueAt(row, 5);
+	// String comment = (String) methodsTable.getValueAt(row, 6);
+	// sb.append(name);
+	// sb.append(" ");
+	// sb.append(dataType);
+	// sb.append("(");
+	// sb.append(dataLength);
+	// sb.append(")");
+	// sb.append(nullable ? "" : "not null");
+	// sb.append(" ");
+	// sb.append(unique ? "unique" : "");
+	// sb.append(";");
+	// }
+	// sb.deleteCharAt(sb.length() - 1);
+	// getCommand().setFields(sb.toString());
+	// }
+	// });
+	// }
+
+	private void setCommand(CmdClass command) {
+		this.command = command;
+
+	}
+
+	private CmdClass getCommand() {
+		return command;
+	}
+
+}

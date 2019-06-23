@@ -1,0 +1,671 @@
+package com.samisari.cezmi.core;
+
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.event.MouseEvent;
+import java.awt.geom.AffineTransform;
+import java.awt.image.BufferedImage;
+import java.beans.BeanInfo;
+import java.beans.Introspector;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyDescriptor;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+import org.apache.log4j.Logger;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+
+import com.samisari.common.util.ImageTool;
+import com.samisari.common.util.bean.BeanUtils;
+import com.sun.org.apache.xerces.internal.parsers.DOMParser;
+
+public abstract class AbstractCommand implements Serializable, Cloneable {
+	private static Logger							logger					= Logger.getLogger(AbstractCommand.class);
+
+	/**
+	 * Serial version id for serialization each command must also be
+	 * serializable
+	 */
+	private static final long						serialVersionUID		= -2314753607657866006L;
+	public static final Color						SELECTED_COLOR			= Color.RED;
+	public static final int							SELECTION_MARKER_SIZE	= 5;
+
+	private Status									currentStatus			= Status.START;
+	private String									name;
+	private String									id;
+	private boolean									selected				= false;
+	public Rectangle								bounds;
+	private transient List<PropertyChangeListener>	propertyChangeListeners	= new ArrayList<PropertyChangeListener>();
+	private String									parentId;
+	private AffineTransform							transform;
+	private static long								sequence;
+	private double									z;
+
+	public AbstractCommand() {
+		super();
+		// this.name=getClass().getSimpleName().substring(3) +
+		// System.currentTimeMillis();
+		setId(getClass().getSimpleName().substring(3) + System.currentTimeMillis() + (sequence++));
+	}
+
+	public void mouseClicked(int x, int y) {
+	};
+
+	public void mouseMoved(int x, int y) {
+	};
+
+	public void mousePressed(int x, int y) {
+	};
+
+	public void mouseReleased(int x, int y) {
+	};
+
+	// Runs this when painting the object
+	public void paint(Graphics g) {
+
+	}
+
+	public void beforePaint(Graphics g) {
+		if (transform != null) {
+			logger.debug(transform.toString());
+			((Graphics2D) g).setTransform(transform);
+		}
+	}
+
+	public void afterPaint(Graphics g) {
+		if (isSelected())
+			paintSelection(g);
+		if (transform != null) {
+			AffineTransform identity = new AffineTransform();
+			((Graphics2D) g).setTransform(identity);
+		}
+	}
+
+	// initial action executed as soon as the command is clicked
+	public void run() {
+	}
+
+	public void redo() {
+	}
+
+	public void undo() {
+	}
+
+	public void setCurrentStatus(Status currentStatus) {
+		this.currentStatus = currentStatus;
+	}
+
+	public Status getCurrentStatus() {
+		if (currentStatus == null) {
+			currentStatus = Status.END;
+		}
+		return currentStatus;
+	}
+
+	public boolean isInRange(int x, int y, int radius) {
+		if (bounds != null)
+			if (x >= bounds.x - radius && x <= bounds.x + bounds.width + radius && y >= bounds.y - radius
+					&& y <= bounds.y + bounds.height + radius) {
+				logger.debug(getClass().getName() + " is in range!!");
+				return true;
+			}
+		return false;
+	}
+
+	public void setSelected(boolean selected) {
+		this.selected = selected;
+	}
+
+	public boolean isSelected() {
+		return selected;
+	}
+
+	public static final BufferedImage	PROCESS_ICON	= ImageTool
+			.getResourceAsImage("com/samisari/graphics/resources/process-icon-10x10.png");
+	public static final BufferedImage	LT_ICON			= ImageTool
+			.getResourceAsImage("com/samisari/graphics/resources/topleft-icon-10x10.png");
+	public static final BufferedImage	LB_ICON			= ImageTool
+			.getResourceAsImage("com/samisari/graphics/resources/bottomleft-icon-10x10.png");
+	public static final BufferedImage	RT_ICON			= ImageTool
+			.getResourceAsImage("com/samisari/graphics/resources/topright-icon-10x10.png");
+	public static final BufferedImage	RB_ICON			= ImageTool
+			.getResourceAsImage("com/samisari/graphics/resources/bottomright-icon-10x10.png");
+	public static final BufferedImage	T_ICON			= ImageTool
+			.getResourceAsImage("com/samisari/graphics/resources/top-icon-10x10.png");
+	public static final BufferedImage	B_ICON			= ImageTool
+			.getResourceAsImage("com/samisari/graphics/resources/bottom-icon-10x10.png");
+	public static final BufferedImage	L_ICON			= ImageTool
+			.getResourceAsImage("com/samisari/graphics/resources/left-icon-10x10.png");
+	public static final BufferedImage	R_ICON			= ImageTool
+			.getResourceAsImage("com/samisari/graphics/resources/right-icon-10x10.png");
+
+	protected void paintSelection(Graphics g) {
+		if (bounds != null) {
+			Color tmp = g.getColor();
+			g.setColor(SELECTED_COLOR);
+			g.drawImage(LT_ICON, bounds.x - SELECTION_MARKER_SIZE, bounds.y - SELECTION_MARKER_SIZE, null);
+			g.drawImage(PROCESS_ICON, bounds.x + SELECTION_MARKER_SIZE, bounds.y - SELECTION_MARKER_SIZE, null);
+			g.drawImage(RT_ICON, bounds.x + bounds.width - SELECTION_MARKER_SIZE, bounds.y - SELECTION_MARKER_SIZE, null);
+			g.drawImage(LB_ICON, bounds.x - SELECTION_MARKER_SIZE, bounds.y + bounds.height - SELECTION_MARKER_SIZE, null);
+			g.drawImage(RB_ICON, bounds.x + bounds.width - SELECTION_MARKER_SIZE, bounds.y + bounds.height - SELECTION_MARKER_SIZE, null);
+			g.drawImage(T_ICON, bounds.x + bounds.width / 2 - SELECTION_MARKER_SIZE, bounds.y - SELECTION_MARKER_SIZE, null);
+			g.drawImage(B_ICON, bounds.x + bounds.width / 2 - SELECTION_MARKER_SIZE, bounds.y + bounds.height - SELECTION_MARKER_SIZE,
+					null);
+			g.drawImage(L_ICON, bounds.x - SELECTION_MARKER_SIZE, bounds.y + bounds.height / 2 - SELECTION_MARKER_SIZE, null);
+			g.drawImage(R_ICON, bounds.x + bounds.width - SELECTION_MARKER_SIZE, bounds.y + bounds.height / 2 - SELECTION_MARKER_SIZE,
+					null);
+			g.drawRect(bounds.x + bounds.width / 2 - SELECTION_MARKER_SIZE, bounds.y + bounds.height / 2 - SELECTION_MARKER_SIZE,
+					SELECTION_MARKER_SIZE * 2, SELECTION_MARKER_SIZE * 2);
+			g.setColor(tmp);
+		}
+	}
+
+	protected void setBounds(int left, int top, int widht, int height) {
+		Rectangle oldBounds = bounds;
+		bounds = new Rectangle(left, top, widht, height);
+		firePropertyChange(new PropertyChangeEvent(this, "bounds", oldBounds, this.bounds));
+	}
+
+	public Rectangle getBounds() {
+		if (bounds == null) {
+			bounds = new Rectangle();
+		}
+		return bounds;
+	}
+
+	public void buildBounds() {
+		if (this.bounds == null)
+			this.bounds = new Rectangle(0, 0, 0, 0);
+	}
+
+	public void setBounds(Rectangle bounds) {
+		Rectangle oldBounds = getBounds();
+		this.bounds = bounds;
+		logger.debug("Firing boundary changed:" + getClass().getSimpleName() + ":" + (bounds == null ? "NULL" : bounds.toString()));
+		firePropertyChange(new PropertyChangeEvent(this, "bounds", oldBounds, this.bounds));
+		// ConsolePropertyManager.getInstance().getConsolePanel().repaint();
+	}
+
+	public int getX() {
+		return getBounds().x;
+	}
+
+	public int getY() {
+		return getBounds().y;
+	}
+
+	public int getWidth() {
+		return getBounds().width;
+	}
+
+	public int getHeight() {
+		return getBounds().height;
+	}
+
+	public int getRight() {
+		return getBounds().x + getBounds().width;
+	}
+
+	public int getBottom() {
+		return getBounds().y + getBounds().height;
+	}
+
+	public void setX(int x) {
+		logger.debug(getClass().getSimpleName() + " x=" + x);
+		Rectangle oldBounds = new Rectangle(getBounds());
+		getBounds().x = x;
+		firePropertyChange(new PropertyChangeEvent(this, "bounds", oldBounds, this.bounds));
+	}
+
+	public void setY(int y) {
+		Rectangle oldBounds = new Rectangle(getBounds());
+		getBounds().y = y;
+		firePropertyChange(new PropertyChangeEvent(this, "bounds", oldBounds, this.bounds));
+	}
+
+	public void setWidth(int width) {
+		logger.debug(getClass().getSimpleName() + " width=" + width);
+		Rectangle oldBounds = new Rectangle(getBounds());
+		getBounds().width = width;
+		firePropertyChange(new PropertyChangeEvent(this, "bounds", oldBounds, this.bounds));
+	}
+
+	public void setHeight(int height) {
+		Rectangle oldBounds = new Rectangle(getBounds());
+		getBounds().height = height;
+		firePropertyChange(new PropertyChangeEvent(this, "bounds", oldBounds, this.bounds));
+	}
+
+	public Point getOperationPoint(Operation operation) {
+		Point p = new Point();
+		switch (operation) {
+		case LEFT:
+			p.setLocation(bounds.getX(), bounds.getY() + (bounds.getHeight() / 2));
+			break;
+		case TOP_LEFT:
+			p.setLocation(bounds.getX(), bounds.getY());
+			break;
+		case BOTTOM_LEFT:
+			p.setLocation(bounds.getX(), bounds.getY() + bounds.getHeight());
+			break;
+		case RIGHT:
+			p.setLocation(bounds.getX() + bounds.getWidth(), bounds.getY() + (bounds.getHeight() / 2));
+			break;
+		case TOP_RIGHT:
+			p.setLocation(bounds.getX() + bounds.getWidth(), bounds.getY());
+			break;
+		case BOTTOM_RIGHT:
+			p.setLocation(bounds.getX() + bounds.getWidth(), bounds.getY() + bounds.getHeight());
+			break;
+		case MOVE:
+			p.setLocation(bounds.getX() + (bounds.getWidth() / 2), bounds.getY() + (bounds.getHeight() / 2));
+			break;
+		case TOP:
+			p.setLocation(bounds.getX() + (bounds.getWidth() / 2), bounds.getY());
+			break;
+		case BOTTOM:
+			p.setLocation(bounds.getX() + (bounds.getWidth() / 2), bounds.getY() + (bounds.getHeight()));
+			break;
+		default:
+			p = null;
+
+		}
+
+		return p;
+
+	}
+
+	public void move(Operation operation, int dx, int dy) {
+		move(operation, dx, dy, 1);
+	}
+
+	public void move(Operation operation, int dx, int dy, int movementStep) {
+		Rectangle newBounds = new Rectangle(bounds);
+		switch (operation) {
+		case LEFT:
+		case TOP_LEFT:
+		case BOTTOM_LEFT:
+			newBounds.x = bounds.x + dx;
+			newBounds.width = bounds.width - dx;
+			break;
+		case RIGHT:
+		case TOP_RIGHT:
+		case BOTTOM_RIGHT:
+			newBounds.width = bounds.width + dx;
+			break;
+		case MOVE: {
+			newBounds.x = bounds.x + dx;
+		}
+			break;
+		default:
+		}
+		switch (operation) {
+		case TOP:
+		case TOP_LEFT:
+		case TOP_RIGHT:
+			newBounds.y = bounds.y + dy;
+			newBounds.height = bounds.height - dy;
+			break;
+		case BOTTOM:
+		case BOTTOM_LEFT:
+		case BOTTOM_RIGHT:
+			newBounds.height = bounds.height + dy;
+			break;
+		case MOVE: {
+			newBounds.y = bounds.y + dy;
+		}
+			break;
+		default:
+		}
+		if (movementStep > 1) {
+			newBounds.x -= newBounds.x % 5;
+			newBounds.y -= newBounds.y % 5;
+			newBounds.width -= newBounds.width % 5;
+			newBounds.height -= newBounds.height % 5;
+		}
+		boundaryChanged(bounds, newBounds);
+		setBounds(newBounds.x, newBounds.y, newBounds.width, newBounds.height);
+
+	}
+
+	public void boundaryChanged(Rectangle oldBounds, Rectangle newBounds) {
+		logger.debug("boundaryChanged height:" + oldBounds.height + ">" + newBounds.height + " - y:" + oldBounds.y + ">" + newBounds.y);
+	}
+
+	public AbstractCommand duplicate() throws CloneNotSupportedException {
+		AbstractCommand clone = (AbstractCommand) clone();
+		clone.currentStatus = Status.START;
+		// clone.panel = panel;
+		clone.selected = false;
+		clone.setId(getClass().getSimpleName().substring(3) + System.nanoTime());
+		return clone;
+	}
+
+	public void onDelete() {
+	}
+
+	public void mouseDragged(MouseEvent mouseEvent) {
+	}
+
+	public void addPropertyChangeListener(PropertyChangeListener l) {
+		propertyChangeListeners.add(l);
+	}
+
+	public void removePropertyChangeListener(PropertyChangeListener l) {
+		propertyChangeListeners.remove(l);
+	}
+
+	public void firePropertyChange(PropertyChangeEvent pc) {
+		for (int i = 0; i < propertyChangeListeners.size(); i++) {
+			PropertyChangeListener l = propertyChangeListeners.get(i);
+			if (l == null) {
+				propertyChangeListeners.remove(i);
+				continue;
+			}
+			l.propertyChange(pc);
+		}
+	}
+
+	public void setPropertyValue(String name, Object value) {
+		BeanInfo classInfo;
+		try {
+
+			classInfo = Introspector.getBeanInfo(getClass(), Object.class, Introspector.USE_ALL_BEANINFO);
+
+			PropertyDescriptor[] propertyInfoArr = classInfo.getPropertyDescriptors();
+			for (PropertyDescriptor propertyInfo : propertyInfoArr) {
+				String propertyName = propertyInfo.getName();
+				if (name.equals(propertyName)) {
+					if (propertyInfo.getPropertyType().isInstance(value))
+						propertyInfo.getWriteMethod().invoke(this, value);
+					else if (propertyInfo.getPropertyType().isAssignableFrom(value.getClass())) {
+						propertyInfo.getWriteMethod().invoke(this, value);
+					} else if (value instanceof String) {
+						try {
+							BeanUtils.string2Value(this, propertyInfo.getPropertyType(), propertyInfo.getWriteMethod(), (String) value);
+						} catch (Exception e) {
+							logger.warn(e.getMessage());
+						}
+					}
+					return;
+				}
+			}
+		} catch (Exception e) {
+			logger.error(e);
+		}
+
+	}
+
+	public List<CommandProperty> listProperties(String filter) {
+		List<CommandProperty> properties = new ArrayList<CommandProperty>();
+		BeanInfo classInfo;
+		try {
+			classInfo = Introspector.getBeanInfo(getClass(), Object.class, Introspector.IGNORE_ALL_BEANINFO);
+
+			PropertyDescriptor[] propertyInfoArr = classInfo.getPropertyDescriptors();
+			for (PropertyDescriptor propertyInfo : propertyInfoArr) {
+				String name = null;
+				Object value = null;
+				try {
+					String clas = propertyInfo.getReadMethod().getDeclaringClass().getSimpleName();
+					name = propertyInfo.getName();
+					value = propertyInfo.getReadMethod().invoke(this);
+					BeanUtils.value2String(value);
+					properties.add(new CommandProperty(name, value, clas));
+				} catch (Exception ei) {
+					logger.warn("Can not retreive value of property " + name + " of command class " + getClass().getSimpleName());
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return properties;
+	}
+
+	public void serialise(OutputStream out) throws Exception {
+		BeanInfo classInfo = Introspector.getBeanInfo(getClass(), Object.class, Introspector.USE_ALL_BEANINFO);
+		out.write(("<" + getClass().getName() + ">\n").getBytes(Charset.forName("UTF-8")));
+		PropertyDescriptor[] propertyInfoArr = classInfo.getPropertyDescriptors();
+		for (PropertyDescriptor propertyInfo : propertyInfoArr) {
+			String name = propertyInfo.getName();
+			Object value = propertyInfo.getReadMethod().invoke(this);
+			out.write(("<" + name + ">").getBytes(Charset.forName("UTF-8")));
+			String valueStr = "";
+			try {
+				valueStr = BeanUtils.value2String(value);
+			} catch (Throwable t) {
+				try {
+					Method serializeMethod = value.getClass().getMethod("serialise", new Class<?>[] { OutputStream.class });
+					if ((serializeMethod != null)) {
+						serializeMethod.invoke(value, out);
+					}
+				} catch (Throwable t1) {
+					// ignore
+					logger.warn("Error while serializing:" + valueStr + "\n" + t1.getMessage());
+				}
+			}
+			out.write(((value == null ? "" : valueStr) + "</" + name + ">\n").getBytes(Charset.forName("UTF-8")));
+		}
+		out.write(("</" + getClass().getName() + ">\n").getBytes(Charset.forName("UTF-8")));
+	}
+
+	public void deserialise(InputStreamReader in) throws Exception {
+		String text = getComponentXml(in);
+		DOMParser parser = new DOMParser();
+		parser.parse(new InputSource(new ByteArrayInputStream(text.getBytes(Charset.forName("UTF8")))));
+		Document doc = parser.getDocument();
+		Element elm = doc.getDocumentElement();
+		deserialise(elm);
+	}
+
+	public void deserialise(Element elm) {
+		logger.debug("DESERAILISING " + getClass().getSimpleName());
+		NodeList nodeList = elm.getChildNodes();
+		HashMap<String, Method> setterMethods = getClassMethods();
+		for (int i = 0; i < nodeList.getLength(); i++) {
+			Node node = nodeList.item(i);
+			if (node.getNodeType() == Node.ELEMENT_NODE) {
+				Element propertyElm = (Element) node;
+				String name = propertyElm.getNodeName();
+				if (setterMethods.containsKey(name)) {
+					Method setter = setterMethods.get(name);
+					Class<?> propertyType = setter.getParameterTypes()[0];
+					String value = propertyElm.getTextContent();
+					if (AbstractCommand.class.isAssignableFrom(propertyType)) {
+						logger.warn("WTF will i do");
+					} else if (propertyType.equals(History.class)) {
+						History arg = new History();
+						arg.deserialise(propertyElm);
+						try {
+							setter.invoke(this, arg);
+						} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+							logger.error("ERROR setting property " + name, e);
+						}
+					} else {
+						try {
+							logger.debug("Setting property " + name + "=" + value);
+							BeanUtils.string2Value(this, propertyType, setter, value);
+						} catch (Exception e) {
+							logger.error("ERROR setting property " + name, e);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	private HashMap<String, Method> getClassMethods() {
+		Method[] methodArr = this.getClass().getMethods();
+		HashMap<String, Method> map = new HashMap<String, Method>();
+		for (Method method : methodArr) {
+			if (method.getName().startsWith("set")) {
+				String propertyName = method.getName().substring(3, 4).toLowerCase() + method.getName().substring(4);
+				if (!map.containsKey(propertyName))
+					map.put(propertyName, method);
+			}
+		}
+		return map;
+	}
+
+	private String getComponentXml(InputStreamReader in) throws IOException {
+		int count = 1;
+		boolean done = false;
+		int c;
+		StringBuffer buffer = new StringBuffer();
+		String cmdEndTag = "</" + getClass().getName() + ">";
+		String cmdStartTag = "<" + getClass().getName() + ">";
+		logger.debug("PARSING class " + getClass().getSimpleName());
+		while (!done) {
+			done = (c = in.read()) >= 0;
+			buffer.append((char) c);
+			if (done)
+				done = buffer.length() > cmdEndTag.length();
+		}
+		done = false;
+		while ((c = in.read()) >= 0 && !done) {
+			buffer.append((char) c);
+			if (buffer.substring(buffer.length() - cmdStartTag.length()).equals(cmdStartTag))
+				count++;
+			if (buffer.substring(buffer.length() - cmdEndTag.length()).equals(cmdEndTag))
+				count--;
+
+			done = (count == 0);
+		}
+
+		String text = buffer.toString();
+		text = cmdStartTag + text;
+		return text;
+	}
+
+	public void morph(Operation operation, int ex, int ey) {
+
+	}
+
+	public Operation getOperation(Point click) {
+
+		int l = bounds.x;
+		int r = bounds.x + bounds.width;
+		int c = bounds.x + bounds.width / 2;
+		int t = bounds.y;
+		int b = bounds.y + bounds.height;
+		int m = bounds.y + bounds.height / 2;
+		int x = click.x;
+		int y = click.y;
+		int s = AbstractCommand.SELECTION_MARKER_SIZE;
+		// Context menu activator
+		if (x >= l + s && x <= l + 3 * s)
+			if (y >= t - s && y <= t + s) {
+				return Operation.CONTEXT_MENU;
+			}
+		if (x >= l - s && x <= l + s) {
+			if (y >= t - s && y <= t + s)
+				return Operation.TOP_LEFT;
+			else if (y >= m - s && y <= m + s)
+				return Operation.LEFT;
+			else if (y >= b - s && y <= b + s)
+				return Operation.BOTTOM_LEFT;
+			else
+				return null;
+		} else if (x >= c - s && x <= c + s) {
+			if (y >= t - s && y <= t + s)
+				return Operation.TOP;
+			else if (y >= m - s && y <= m + s)
+				return Operation.MOVE;
+			else if (y >= b - s && y <= b + s)
+				return Operation.BOTTOM;
+			else
+				return null;
+		} else if (x >= r - s && x <= r + s) {
+			if (y >= t - s && y <= t + s)
+				return Operation.TOP_RIGHT;
+			else if (y >= m - s && y <= m + s)
+				return Operation.RIGHT;
+			else if (y >= b - s && y <= b + s)
+				return Operation.BOTTOM_RIGHT;
+			else
+				return null;
+		}
+
+		return null;
+	}
+
+	public int getArea() {
+		return getBounds().height * getBounds().width;
+	}
+
+	public void openContextMenu() {
+		logger.debug("Operation is Context Menu");
+		currentStatus = Status.CONTEXT_MENU;
+	}
+
+	public void paintContextMenu(Graphics g) {
+
+	}
+
+	@Override
+	public String toString() {
+		return getClass().getSimpleName() + "[" + getBounds().x + "," + getBounds().y + "]";
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getId() {
+		return id;
+	}
+
+	public void setId(String id) {
+		this.id = id;
+	}
+
+	public String getParentId() {
+		return parentId;
+	}
+
+	public void setParentId(String parentId) {
+		this.parentId = parentId;
+	}
+
+	public List<ContextMenuItem> getContextMenuItems() {
+		return null;
+	}
+
+	public AffineTransform getTransform() {
+		return transform;
+	}
+
+	public void setTransform(AffineTransform transform) {
+		this.transform = transform;
+	}
+
+	public double getZ() {
+		return z;
+	}
+
+	public void setZ(double z) {
+		this.z = z;
+	}
+
+}

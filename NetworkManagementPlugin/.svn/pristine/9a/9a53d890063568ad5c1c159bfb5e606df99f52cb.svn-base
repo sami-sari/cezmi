@@ -1,0 +1,57 @@
+package com.samisari.cezmi.networkcommands.actions;
+
+import java.io.IOException;
+import java.io.InputStream;
+
+import com.jcraft.jsch.Channel;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.Session;
+import com.samisari.cezmi.networkcommands.CmdServer;
+import com.samisari.cezmi.networkcommands.wizards.CmdServerWizard;
+
+public class CmdServerActions {
+	CmdServer server;
+
+	public CmdServerActions(CmdServer server) {
+		setServer(server);
+	}
+
+	public void showWizard() {
+		CmdServerWizard wiz = new CmdServerWizard(server);
+		wiz.display();
+	}
+	
+	public CmdServer getServer() {
+		return server;
+	}
+
+	public void setServer(CmdServer server) {
+		this.server = server;
+	}
+
+	public void sshConsoleConnect() {
+		JSch sch = new JSch();
+		try {
+			Session session = sch.getSession("root", "www.uygunecza.com",22);
+			session.setPassword("zb_u*fln");
+			session.connect();
+			Channel channel = session.openChannel("Shell");
+			channel.connect();
+			channel.setInputStream(new InputStream() {
+				private StringBuffer buffer;
+				@Override
+				public int read() throws IOException {
+					int val = buffer.charAt(0);
+					buffer.delete(0, 1);
+					return val;
+				}
+			});
+			
+		} catch (JSchException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
+}

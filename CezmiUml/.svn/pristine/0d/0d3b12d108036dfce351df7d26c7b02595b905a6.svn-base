@@ -1,0 +1,11 @@
+package com.samisari.commands.uml;
+
+import java.util.List;
+
+public class CmdClassMethodArgument {
+	private String cmdClassId;
+	private String name;
+	private String type;
+	private boolean _final;
+
+}

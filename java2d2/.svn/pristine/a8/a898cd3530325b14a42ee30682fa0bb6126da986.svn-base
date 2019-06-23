@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="java2d/lib/native/linux"/>
+			<attribute name="ignore_optional_problems" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/SamiSariCommon"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/Java2d-DataBaseDevelopmentPlugin"/>
+	<classpathentry kind="lib" path="/Libraries/crypto/base64-2.2.2.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CommandInterfaces"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/java2d_textwriter"/>
+	<classpathentry kind="lib" path="/Libraries/logging/apache-log4j-1.2.16/log4j-1.2.16.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiInput"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiCore"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiBasicComponents"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiUserInterfaceWidgets"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CezmiSceneEditor"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

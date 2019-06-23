@@ -1,0 +1,206 @@
+package com.samisari.common.util;
+
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+
+import com.samisari.common.XmlElement;
+
+public class ParserUtils {
+	public static String getTextBetween(String sourceText, String startText, String endText) {
+		String result = null;
+		int start, end;
+		if ((start = sourceText.indexOf(startText)) >= 0) {
+			start += startText.length();
+			if ((end = sourceText.indexOf(endText, start)) >= 0) {
+				result = sourceText.substring(start, end);
+			}
+		}
+		return result;
+	}
+
+	public static String getTextAfter(String sourceText, String startText) {
+		String result = null;
+		int start;
+		if ((start = sourceText.indexOf(startText)) >= 0) {
+			start += startText.length();
+			result = sourceText.substring(start);
+		}
+		return result;
+	}
+
+	public static String getTextBefore(String sourceText, String endText) {
+		String result = null;
+		int end;
+		if ((end = sourceText.indexOf(endText)) >= 0) {
+			result = sourceText.substring(0, end);
+		}
+		return result;
+	}
+
+	public static String getTextBefore(String sourceText, String endText, int[] pos) {
+		String result = null;
+		int start = pos[0];
+		int end;
+		if ((end = sourceText.indexOf(endText, start)) >= 0) {
+			pos[0] = end;
+			result = sourceText.substring(start, end);
+		}
+		return result;
+	}
+
+	public static String getTextBetween(String sourceText, String startText, String endText, int[] index) {
+		String result = null;
+		int start, end;
+		if ((start = sourceText.indexOf(startText, index[0])) >= 0) {
+			start += startText.length();
+			if ((end = sourceText.indexOf(endText, start)) >= 0) {
+				result = sourceText.substring(start, end);
+				index[0] = end + endText.length();
+			}
+		}
+		return result;
+	}
+
+	public static String getTextBetween(String sourceText, String[] startText, String endText, int[] index) {
+		String result = null;
+		int start = sourceText.length(), end;
+		String stext = null;
+		List<String> c = Arrays.asList(startText);
+		for (String str : c) {
+			int tmp = 0;
+			if ((tmp = sourceText.indexOf(str, index[0])) < start && tmp > -1) {
+				start = tmp;
+				stext = str;
+			}
+		}
+		if (start >= 0 && stext != null) {
+			start += stext.length();
+			if ((end = sourceText.indexOf(endText, start)) >= 0) {
+				result = sourceText.substring(start, end);
+				index[0] = end;
+			}
+		}
+		return result;
+	}
+
+	public static String trimLeadingZeroes(String text) {
+		while (text.startsWith("0") && text.length() > 1)
+			text = text.substring(1);
+		return text;
+	}
+
+	public static String zeroPad(int num, int totalLength) {
+		StringBuilder result = new StringBuilder();
+		result.append(num);
+		while (result.length() < totalLength) {
+			result.insert(0, "0");
+		}
+		return result.toString();
+	}
+
+	public static String escape(String s, String encoding) {
+		if (s == null) {
+			return "";
+		}
+
+		final StringBuilder sb = new StringBuilder();
+
+		try {
+			for (int i = 0; i < s.length(); i++) {
+				final char c = s.charAt(i);
+
+				if (((c >= 'A') && (c <= 'Z')) || ((c >= 'a') && (c <= 'z')) || ((c >= '0') && (c <= '9')) || (c == '-') || (c == '.') || (c == '_') || (c == '~')) {
+					sb.append(c);
+				} else {
+					final byte[] bytes = ("" + c).getBytes(encoding);
+
+					for (byte b : bytes) {
+						sb.append('%');
+
+						int upper = (((int) b) >> 4) & 0xf;
+						sb.append(Integer.toHexString(upper).toUpperCase(Locale.US));
+
+						int lower = ((int) b) & 0xf;
+						sb.append(Integer.toHexString(lower).toUpperCase(Locale.US));
+					}
+				}
+			}
+
+			return sb.toString();
+		} catch (UnsupportedEncodingException uee) {
+			throw new RuntimeException("UTF-8 unsupported!?", uee);
+		}
+	}
+
+	public static String unescape(String s, String encoding) {
+		if (s == null) {
+			return "";
+		}
+
+		final StringBuilder sb = new StringBuilder();
+
+		try {
+			for (int i = 0; i < s.length(); i++) {
+				final char c = s.charAt(i);
+
+				if (((c >= 'A') && (c <= 'Z')) || ((c >= 'a') && (c <= 'z')) || ((c >= '0') && (c <= '9')) || (c == '-') || (c == '.') || (c == '_') || (c == '~')) {
+					sb.append(c);
+				} else if (c == '%' && encoding.equalsIgnoreCase("UTF8")) {
+					String hex = "" + s.charAt(++i) + s.charAt(++i);
+					if (hex.startsWith("C") || hex.startsWith("D")) {
+						i++;
+						String hex1 = "" + s.charAt(++i) + s.charAt(++i);
+						byte[] unicode = new byte[2];
+						unicode[0] = (byte) Integer.parseInt(hex, 16);
+						unicode[1] = (byte) Integer.parseInt(hex1, 16);
+						sb.append(new String(unicode, Charset.forName(encoding)));
+
+					} else {
+						sb.append((char) Integer.parseInt(hex, 16));
+					}
+				} else if (c == '+') {
+					sb.append(' ');
+				} else {
+					sb.append(c);
+				}
+			}
+
+			return sb.toString();
+		} catch (Exception uee) {
+			throw new RuntimeException("UTF-8 unsupported!?", uee);
+		}
+	}
+
+	public static void main(String[] args) {
+		System.out.println(escape("     %                 90 GÜN     5    5X1     10.25", "ISO-8859-9"));
+		System.out.println(escape("     %                 90 GÜN     0    0+0      1.03".replaceAll("\\+", "X"), "ISO-8859-9"));
+
+	}
+
+	public static XmlElement getXMLElement(final String xml, int[] start) {
+		XmlElement e = new XmlElement();
+		e.setTagName(ParserUtils.getTextBetween(xml, "<", ">", start));
+		start[0]--;
+		e.setContent(ParserUtils.getTextBetween(xml, ">", "</" + e.getTagName() + ">", start));
+		return e;
+	}
+
+	public static String getXmlStartTag(String xmlTagName) {
+		return "<" + xmlTagName + ">";
+	}
+
+	public static String getXmlEndTag(String xmlTagName) {
+		return "</" + xmlTagName + ">";
+	}
+
+	public static String getXmlTagValue(String content, String xmlTagName) {
+		return ParserUtils.getTextBetween(content, ParserUtils.getXmlStartTag(xmlTagName), ParserUtils.getXmlEndTag(xmlTagName));
+	}
+
+	public static String getXmlTagValue(String content, String xmlTagName, int[] start) {
+		return ParserUtils.getTextBetween(content, ParserUtils.getXmlStartTag(xmlTagName), ParserUtils.getXmlEndTag(xmlTagName), start);
+	}
+}

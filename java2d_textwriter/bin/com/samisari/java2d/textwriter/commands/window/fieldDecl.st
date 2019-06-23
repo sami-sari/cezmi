@@ -1,0 +1,4 @@
+fieldDecl(indent, name, title) ::= <<
+<indent>private JFrame <name> = new JFrame("<title>");
+
+>>

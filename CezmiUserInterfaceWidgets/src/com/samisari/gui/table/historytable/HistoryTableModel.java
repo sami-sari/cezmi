@@ -1,0 +1,83 @@
+package com.samisari.gui.table.historytable;
+
+import java.awt.Rectangle;
+
+import javax.swing.table.DefaultTableModel;
+
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.CommandManager;
+import com.samisari.cezmi.core.HistoryListener;
+
+public class HistoryTableModel extends DefaultTableModel implements HistoryListener {
+	private static final long			serialVersionUID	= 5089911310189860211L;
+	private static HistoryTableModel	instance;
+
+	public static HistoryTableModel getInstance() {
+		if (instance == null) {
+			instance = new HistoryTableModel();
+			CommandManager.getDeaultInstance().getHistory().addListener(instance);
+
+		}
+		return instance;
+	}
+
+	private HistoryTableModel() {
+		super();
+	}
+
+	@Override
+	public int getColumnCount() {
+		return 4;
+	}
+
+	@Override
+	public int getRowCount() {
+		return CommandManager.getDeaultInstance().getHistory().size();
+	}
+
+	@Override
+	public Object getValueAt(int row, int col) {
+		switch (col) {
+		case 0: {
+			AbstractCommand cmd = CommandManager.getDeaultInstance().getHistory().get(row);
+			StringBuilder sb = new StringBuilder();
+			Rectangle bounds = cmd.getBounds();
+			sb.append(cmd.getClass().getSimpleName());
+			if (bounds != null) {
+				sb.append("(");
+				sb.append(bounds.x);
+				sb.append(", ");
+				sb.append(bounds.y);
+				sb.append(", ");
+				sb.append(bounds.width);
+				sb.append(", ");
+				sb.append(bounds.height);
+				sb.append(")");
+			}
+			return sb.toString();
+		}
+		case 1:
+			return "sil";
+		case 2:
+			return "sakla";
+		case 3:
+			return "ekle";
+		}
+		return null;
+	}
+
+	@Override
+	public void onRemoved(Object o) {
+		fireTableDataChanged();
+	}
+
+	@Override
+	public void onInserted(Object o) {
+		fireTableDataChanged();
+	}
+
+	@Override
+	public void onModelChanged() {
+		fireTableDataChanged();
+	}
+}

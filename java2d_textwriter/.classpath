@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="/Libraries/logging/commons-logging-1.1.1/commons-logging-1.1.1.jar" sourcepath="/Libraries/logging/commons-logging-1.1.1/commons-logging-1.1.1-sources.jar">
+		<attributes>
+			<attribute name="javadoc_location" value="jar:platform:/resource/Libraries/logging/commons-logging-1.1.1/commons-logging-1.1.1.jar!/"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="/Libraries/templating/antlr-4.2-complete.jar"/>
+	<classpathentry kind="lib" path="/Libraries/templating/ST-4.0.7.jar"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/CommandInterfaces"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="/Libraries/logging/apache-log4j-1.2.16/log4j-1.2.16.jar" sourcepath="/Libraries/logging/apache-log4j-1.2.16/src"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

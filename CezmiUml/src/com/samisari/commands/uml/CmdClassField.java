@@ -1,0 +1,149 @@
+package com.samisari.commands.uml;
+
+import javax.xml.bind.annotation.XmlRootElement;
+
+import com.github.javaparser.ast.body.FieldDeclaration;
+import com.samisari.cezmi.component.CmdText;
+@XmlRootElement
+public class CmdClassField extends CmdText{
+	private static final long serialVersionUID = 2116933332376696041L;
+	private String	cmdClassId;
+	private String	name;
+	private String	type;
+	private boolean	_public;
+	private boolean	_protected;
+	private boolean	_private;
+	private boolean	_static;
+	private boolean	_final;
+	private boolean	_transient;
+	private boolean	_volatile;
+	private boolean	_synchronized;
+	private String	initialValueExpression;
+	private String	javaDoc;
+//	private FieldDeclaration astFieldDeclaration;
+
+	public String getCmdClassId() {
+		return cmdClassId;
+	}
+
+	public void setCmdClassId(String cmdClassId) {
+		this.cmdClassId = cmdClassId;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+		setText();
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+		setText();
+	}
+
+	public boolean is_public() {
+		return _public;
+	}
+
+	public void set_public(boolean _public) {
+		this._public = _public;
+		setText();
+	}
+
+	public boolean is_protected() {
+		return _protected;
+	}
+
+	public void set_protected(boolean _protected) {
+		this._protected = _protected;
+		setText();
+	}
+
+	public boolean is_private() {
+		return _private;
+	}
+
+	public void set_private(boolean _private) {
+		this._private = _private;
+		setText();
+	}
+
+	public boolean is_static() {
+		return _static;
+	}
+
+	public void set_static(boolean _static) {
+		this._static = _static;
+		setText();
+	}
+
+	public boolean is_final() {
+		return _final;
+	}
+
+	public void set_final(boolean _final) {
+		this._final = _final;
+		setText();
+	}
+
+	public boolean is_transient() {
+		return _transient;
+	}
+
+	public void set_transient(boolean _transient) {
+		this._transient = _transient;
+	}
+
+	public boolean is_volatile() {
+		return _volatile;
+	}
+
+	public void set_volatile(boolean _volatile) {
+		this._volatile = _volatile;
+	}
+
+	public boolean is_synchronized() {
+		return _synchronized;
+	}
+
+	public void set_synchronized(boolean _synchronized) {
+		this._synchronized = _synchronized;
+	}
+
+	public String getInitialValueExpression() {
+		return initialValueExpression;
+	}
+
+	public void setInitialValueExpression(String initialValueExpression) {
+		this.initialValueExpression = initialValueExpression;
+	}
+
+	public String getJavaDoc() {
+		return javaDoc;
+	}
+
+	public void setJavaDoc(String javaDoc) {
+		this.javaDoc = javaDoc;
+	}
+
+//	public FieldDeclaration getAstFieldDeclaration() {
+//		return astFieldDeclaration;
+//	}
+//
+//	public void setAstFieldDeclaration(FieldDeclaration astFieldDeclaration) {
+//		this.astFieldDeclaration = astFieldDeclaration;
+//	}
+
+	private void setText() {
+		setText((is_static()?"S": " ") + (is_final()?"F":" ") + ((is_private()?"-":(is_public()?"+":(is_protected()?"P":" "))))+" "+getName());
+		
+	}
+
+}

@@ -1,0 +1,64 @@
+package com.samisari.cezmi.animator.core;
+
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+import javax.swing.Timer;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.animator.gui.Player;
+import com.samisari.cezmi.animator.gui.TimeLine;
+
+public class Tick implements ActionListener {
+	private static final Logger	logger	= Logger.getLogger(Tick.class);
+	private volatile Player		player;
+	private int					numberOfFrames;
+
+	public Tick(Player player) {
+		super();
+		setPlayer(player);
+		player.getAnimation().setFramesPerSecond(60);
+		numberOfFrames = player.getAnimation().getNumberOfFrames();
+		logger.debug("created new Ticker");
+	}
+
+	@Override
+	public void actionPerformed(ActionEvent e) {
+		Animation animation = player.getAnimation();
+		TimeLine timeline = player.getTimeline();
+		logger.debug("Ticker ticking");
+		int frame = animation.getCurrentFrameNumber() + 1;
+		if (animation.getSelectionStart() > -1 && animation.getSelectionEnd() > -1
+				&& animation.getSelectionEnd() > animation.getSelectionStart()) {
+			numberOfFrames = animation.getSelectionEnd();
+			if (frame > numberOfFrames) {
+				Timer ticker = getPlayer().getTicker();
+				if (ticker != null)
+					ticker.stop();
+				return;
+			}
+		} else {
+			getPlayer().setPlaying(false);
+			getPlayer().getTicker().restart();
+			getPlayer().getTicker().stop();
+		}
+
+		if (frame < numberOfFrames) {
+			timeline.setFrame(frame);
+		} else {
+			getPlayer().setPlaying(false);
+			getPlayer().getTicker().restart();
+			getPlayer().getTicker().stop();
+		}
+	}
+
+	public Player getPlayer() {
+		return player;
+	}
+
+	public void setPlayer(Player player) {
+		this.player = player;
+	}
+
+}

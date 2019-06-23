@@ -1,0 +1,35 @@
+package com.samisari.cezmi.component;
+
+import java.awt.Graphics;
+import java.awt.Point;
+import java.util.ArrayList;
+import java.util.List;
+
+public class CmdConnectableRectangle extends CmdRectangle implements CmdConnectable{
+	private static final long serialVersionUID = 1L;
+	
+	List<Point> connectionPoints = new ArrayList<Point>();
+	
+	public CmdConnectableRectangle() {
+		super();
+	}
+	
+	@Override
+	public void paintConnectionPoints(Graphics g) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void putConnectionPoint(String name, Point p) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public Point getConnectionPoint(String name) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+}

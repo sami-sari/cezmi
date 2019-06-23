@@ -1,0 +1,128 @@
+package com.samisari.cezmi.animator.gui;
+
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.util.Comparator;
+import java.util.Iterator;
+
+import javax.swing.JPanel;
+
+import org.apache.log4j.Logger;
+
+import com.samisari.cezmi.animator.core.AnimationListener;
+import com.samisari.cezmi.core.AbstractCommand;
+import com.samisari.cezmi.core.ConsolePropertyManager;
+
+public class PlayerPanel extends JPanel implements AnimationListener {
+	private static final Logger	logger				= Logger.getLogger(PlayerPanel.class);
+	private static final long	serialVersionUID	= 1L;
+	private Player				player;
+	private BufferedImage		buffer;
+
+	public PlayerPanel(Player player) {
+		super();
+		logger.debug("Initialize");
+		this.player = player;
+		Dimension dim = new Dimension(player.getGraphicsConfiguration().getBounds().width, player.getGraphicsConfiguration().getBounds().height);
+		setPreferredSize(new Dimension(dim.width, dim.height - 100));
+		PlayerMouseListener mouseListener = new PlayerMouseListener(this, player);
+		addMouseListener(mouseListener);
+		addMouseMotionListener(mouseListener);
+		setFocusable(true);
+		grabFocus();
+	}
+
+	protected void updateBuffer() {
+
+		if (getWidth() > 0 && getHeight() > 0) {
+			if (buffer == null) {
+				buffer = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_RGB);
+			}
+			Graphics2D g2d = buffer.createGraphics();
+			g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
+			g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			g2d.setRenderingHint(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_QUALITY);
+			g2d.setRenderingHint(RenderingHints.KEY_DITHERING, RenderingHints.VALUE_DITHER_ENABLE);
+			g2d.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+			g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+			g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+			g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+			g2d.setPaintMode();
+			g2d.setColor(Color.white);
+			g2d.fillRect(0, 0, this.getWidth(), this.getHeight());
+			paintConsoleObjects(g2d);
+			g2d.dispose();
+		}
+	}
+
+	@Override
+	public void invalidate() {
+		buffer = null;
+		updateBuffer();
+		super.invalidate();
+	}
+
+	@Override
+	public void paintComponent(Graphics g) {
+		super.paintComponent(g);
+		Graphics2D g2d = (Graphics2D) g;
+		updateBuffer();
+		if (buffer != null) {
+			g2d.drawImage(buffer, 0, 0, this);
+		}
+	}
+
+	private void paintConsoleObjects(Graphics g) {
+		if (player == null)
+			return;
+		if (player.getAnimation() == null)
+			return;
+		player.getAnimation().getCurrentView().sort(new Comparator<AbstractCommand>() {
+			@Override
+			public int compare(AbstractCommand o1, AbstractCommand o2) {
+				if (o1.getZ() > o2.getZ())
+					return 1;
+				if (o1.getZ() < o2.getZ())
+					return -1;
+				return 0;
+			}
+		});
+		
+		for (AbstractCommand cmd : player.getAnimation().getCurrentView()) {
+			if (player.getAnimation().hasCanges(cmd)) {
+				player.getAnimation().applyCurrentChanges(cmd);
+			}
+			cmd.beforePaint(g, ConsolePropertyManager.getDefaultInstance().getScaleFactor(), ConsolePropertyManager.getDefaultInstance().getOffset());
+			cmd.paint(g);
+			cmd.afterPaint(g);
+		}
+		
+		// show all frames? Do i need to that?
+		if (!player.isPlaying()) {
+			int startFrame = player.getAnimation().getSelectionStart();
+			int current = player.getAnimation().getCurrentFrameNumber();
+			if (startFrame > -1 && startFrame != current) {
+				for (int f = startFrame; f < current; f++) {
+					Iterator<AbstractCommand> iter = player.getAnimation().getViews().get(f).iterator();
+					while (iter.hasNext()) {
+						AbstractCommand cmd = iter.next();
+						cmd.beforePaint(g, ConsolePropertyManager.getDefaultInstance().getScaleFactor(), ConsolePropertyManager.getDefaultInstance().getOffset());
+						cmd.paint(g);
+						cmd.afterPaint(g);
+					}
+				}
+			}
+		}
+	}
+
+	@Override
+	public void onFrameChange() {
+		grabFocus();
+		repaint();
+	}
+
+}
